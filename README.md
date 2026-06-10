@@ -1,142 +1,182 @@
-# AI Placement Preparation Agent 🎯
+# 🎯 AI Placement Preparation Agent
 
-An intelligent multi-agent AI system for student placement preparation with resume analysis, skillgap identification, personalized roadmaps, and job matching.
-
----
-
-## 📋 Features
-
-- **Resume Analyzer** - ATS scoring (0-100), skill extraction, keyword optimization
-- **Skill Gap Analyzer** - Compare skills vs job requirements, gap percentage
-- **Roadmap Agent** - Personalized daily/weekly learning plans
-- **Job Matching Agent** - Match probability % for companies
+An enterprise-grade **Multi-Agent AI System** helping students become placement-ready through automated resume analysis, skill gap detection, personalized learning roadmaps, and intelligent job matching.
 
 ---
+  
+## ✨ System Overview
 
-## 🏗️ System Architecture
-Resume Upload → Resume Analyzer → Skill Gap Analyzer → Roadmap Agent → Job Matching Agent
+```
+Resume Upload → Agent 1 → Agent 2 → Agent 3 → Agent 4 → Unified Dashboard
+                Resume    Skill Gap  Roadmap    Job
+                Analyzer  Analyzer   Generator  Matcher
+```
+
+All 4 agents run automatically when a student uploads their resume. No hardcoded data — everything is extracted dynamically from the uploaded resume using AI.
 
 ---
 
 ## 🤖 The 4 Agents
 
-| Agent | Purpose | Key Tech |
-|-------|---------|----------|
-| **Resume Analyzer** | Parse PDF/DOCX, ATS scoring | `PyMuPDF`, `spaCy`, GPT-4 |
-| **Skill Gap Analyzer** | Compare skills, calculate gap % | `scikit-learn`, Cosine Similarity |
-| **Roadmap Agent** | Generate learning plans | GPT-4, PostgreSQL |
-| **Job Matching Agent** | Match students to jobs (40% skill + 25% assessment + 20% interview + 15% communication) | Pinecone, XGBoost |
+### Agent 1 — Resume Analyzer
+- Parses PDF & DOCX using PyMuPDF + python-docx
+- Extracts: Name, Email, Phone, Skills, Education, Experience, Projects, Certifications
+- Calculates ATS Score (0–100) with detailed feedback via Gemini API
+- Generates 384-dim resume embedding using sentence-transformers → stored in pgvector
+
+### Agent 2 — Skill Gap Analyzer
+- Queries Gemini API for 15-25 required skills for any target role
+- Uses cosine similarity (sentence-transformers) for semantic skill matching
+- Calculates gap percentage and prioritizes missing skills by market demand
+
+### Agent 3 — Roadmap Generator
+- Estimates personalized duration based on skill count, hours/day, student level
+- Generates detailed 14-day daily plan + full weekly plan + monthly milestones
+- Recommends real resources (Coursera, YouTube, LeetCode) per skill
+- Creates mock interview schedule
+
+### Agent 4 — Job Matching Agent (Dynamic Scoring)
+- Uses pgvector semantic search to find relevant jobs
+- **Dynamic scoring**: weights auto-adjust based on criteria in each job posting
+  - Job with only Skills → skill(70%) + resume(30%)
+  - Job with Skills + CGPA → skill(50%) + resume(20%) + cgpa(30%)
+  - Job with 4 criteria → weights split equally among available criteria
+- Predicts: Highly Likely / Likely / Possible / Unlikely / Not Ready
+
+---
+
+## 🏗️ Project Structure
+
+```
+placement_ai_system/
+├── backend/
+│   ├── app/
+│   │   ├── agents/
+│   │   │   ├── resume_analyzer/agent.py    ← Agent 1
+│   │   │   ├── skill_gap/agent.py          ← Agent 2
+│   │   │   ├── roadmap/agent.py            ← Agent 3
+│   │   │   └── job_matching/agent.py       ← Agent 4 (+ existing scoring.py)
+│   │   ├── api/v1/endpoints/
+│   │   │   ├── auth.py
+│   │   │   ├── resume.py
+│   │   │   ├── skill_gap.py
+│   │   │   ├── roadmap.py
+│   │   │   ├── jobs.py
+│   │   │   ├── pipeline.py                 ← Full pipeline endpoint
+│   │   │   └── students.py
+│   │   ├── core/
+│   │   │   ├── config.py                   ← Settings from .env
+│   │   │   └── security.py                 ← JWT + RBAC
+│   │   ├── db/session.py                   ← Async SQLAlchemy + pgvector init
+│   │   ├── models/models.py                ← All SQLAlchemy models
+│   │   ├── schemas/schemas.py              ← All Pydantic schemas
+│   │   ├── repositories/
+│   │   │   ├── user_repo.py
+│   │   │   ├── resume_repo.py
+│   │   │   └── job_repo.py
+│   │   └── main.py                         ← FastAPI app entry point
+│   ├── migrations/
+│   │   ├── env.py
+│   │   └── versions/001_initial.py
+│   ├── pyproject.toml
+│   ├── uv.lock
+│   └── alembic.ini
+├── frontend/
+│   └── src/
+│       ├── app/
+│       │   ├── (auth)/login/page.tsx
+│       │   ├── (auth)/register/page.tsx
+│       │   └── (dashboard)/
+│       │       ├── layout.tsx              ← Sidebar nav
+│       │       ├── dashboard/page.tsx      ← Stats + charts
+│       │       ├── upload/page.tsx         ← Drag-drop + agent progress
+│       │       ├── analysis/page.tsx       ← Resume analysis results
+│       │       ├── roadmap/page.tsx        ← Tabbed roadmap view
+│       │       ├── jobs/page.tsx           ← Job matches + rankings
+│       │       └── profile/page.tsx        ← Student profile
+│       └── lib/
+│           ├── api.ts                      ← Axios API client
+│           ├── store.ts                    ← Zustand state
+│           └── utils.ts                   ← Utility functions
+├── database/seed.py                        ← Seed 25 jobs with embeddings
+├── shared/utils.py                         ← Shared utilities
+├── tests/test_agents.py                    ← Pytest test suite
+├── docs/
+│   ├── ARCHITECTURE.md                     ← Full architecture docs
+│   └── SETUP.md                           ← Local dev setup guide
+└── docs/
+```
 
 ---
 
 ## 🛠️ Tech Stack
 
 | Layer | Technology |
-|-------|------------|
-| **Backend** | FastAPI, Django |
-| **AI/ML** | GPT-4, Gemini, `spaCy`, `scikit-learn`, `sentence-transformers` |
-| **Database** | Pinecone (Vector DB) |
-| **Frontend** | Next.js / React / Streamlit |
+|-------|-----------|
+| Backend | FastAPI + SQLAlchemy 2.0 (async) |
+| AI/ML | Gemini 1.5 Flash, sentence-transformers (all-MiniLM-L6-v2) |
+| NLP | spaCy (en_core_web_sm), scikit-learn cosine similarity |
+| PDF/DOCX | PyMuPDF, python-docx |
+| Database | PostgreSQL 16 + pgvector |
+| Auth | JWT (python-jose) + bcrypt |
+| Frontend | Next.js 14 + TypeScript + Tailwind CSS |
+| Charts | Recharts |
+| State | Zustand |
+| Package Manager | uv (Astral) |
 
 ---
 
-## 👥 Team Distribution
+## 🚀 Quick Start (uv)
 
-| Member | Responsibility |
-|--------|----------------|
-| **Member 1** | Resume Analyzer Agent (Parser + NLP + ATS scoring + API) |
-| **Member 2** | Skill Gap Analyzer + Roadmap Agent (2 agents) |
-| **Member 3** | Job Matching Agent + Infrastructure (DB, Auth, Docker, Deployment) |
-
----
-
-## 📦 Installation
-
-### Prerequisites
-- Python 3.13.7
-- PostgreSQL 14+
-- OpenAI/Gemini API keys
-
-### Setup
 ```bash
-# Clone repository
-git clone https://github.com/your-org/ai-placement-agent.git
-cd ai-placement-agent
-
-# Install backend dependencies
+# Backend
 cd backend
-pip install -r requirements.txt
+uv sync
+uv run python -m spacy download en_core_web_sm
+copy .env.example .env   # GEMINI_API_KEY add pannunga
+uv run alembic upgrade head
+uv run python ../database/seed.py
+uv run uvicorn app.main:app --reload
 
-# Configure environment
-cp .env.example .env
-# Edit .env with your API keys
+# Frontend (new terminal)
+cd frontend
+npm install
+npm run dev
+```
 
-### Access
-- **Frontend:** http://localhost:3000
-- **Backend API:** http://localhost:8000
+See [docs/SETUP.md](docs/SETUP.md) for detailed instructions.
 
 ---
 
-## 🔌 API Endpoints
+## 📡 API Endpoints
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/api/v1/analyze-resume` | Upload resume → get analysis |
-| POST | `/api/v1/skill-gap` | Resume + job desc → gap report |
-| POST | `/api/v1/generate-roadmap` | Skill gaps → learning plan |
-| POST | `/api/v1/match-jobs` | Student profile → job matches |
-| POST | `/api/v1/placement-assistant` | Full analysis (all 4 agents) |
+| POST | `/api/v1/auth/register` | Register |
+| POST | `/api/v1/auth/login` | Login → JWT |
+| POST | `/api/v1/analyze/full` | **Upload resume → All 4 agents** |
+| POST | `/api/v1/resume/analyze` | Agent 1 only |
+| POST | `/api/v1/skill-gap/analyze` | Agent 2 only |
+| POST | `/api/v1/roadmap/generate` | Agent 3 only |
+| POST | `/api/v1/jobs/match` | Agent 4 only |
+| GET  | `/api/v1/students/me` | Profile |
 
-### Example Request
-```bash
-curl -X POST "http://localhost:8000/api/v1/analyze-resume" \
-     -F "resume=@resume.pdf"
-```
-
-### Example Response
-```json
-{
-  "resume_score": 85,
-  "skill_gap": "15%",
-  "roadmap": { "duration": "12 weeks", "weekly_plan": [...] },
-  "job_matches": [
-    {"company": "TCS", "probability": 84},
-    {"company": "Infosys", "probability": 78}
-  ]
-}
-```
+Interactive docs: http://localhost:8000/docs
 
 ---
 
-## 📁 Project Structure
+## 👥 Team
 
-ai-placement-agent/
-├── backend/
-│ ├── app/
-│ │ ├── agents/
-│ │ │ ├── resume_analyzer/
-│ │ │ ├── skill_gap/
-│ │ │ ├── roadmap/
-│ │ │ └── job_matching/
-│ │ ├── api/v1/endpoints/
-│ │ └── main.py
-│ ├── requirements.txt
-│ └── Dockerfile
-├── frontend/
-├── docker-compose.yml
-└── README.md
-
+| Member | Responsibility |
+|--------|----------------|
+| Member 1 | Agent 1 (Resume Analyzer) + Database + Auth API |
+| Member 2 | Agent 2 (Skill Gap) + Agent 3 (Roadmap) + Pipeline |
+| Member 3 | Agent 4 (Job Matching) + Frontend + Deployment |
 
 ---
 
-## 🤝 Contributing
+## 📖 Documentation
 
-1. Fork the repository
-2. Create feature branch (`git checkout -b feature/name`)
-3. Commit changes (`git commit -m 'Add feature'`)
-4. Push (`git push origin feature/name`)
-5. Open Pull Request
-
----
-
-
+- [Architecture & Diagrams](docs/ARCHITECTURE.md)
+- [Setup Guide](docs/SETUP.md)
+- API Docs: http://localhost:8000/docs (when running)
