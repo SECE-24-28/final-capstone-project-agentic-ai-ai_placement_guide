@@ -1,0 +1,127 @@
+[
+  {
+    "company":"Infosys",
+    "role":"Software Engineer",
+    "description":"java,python,dsa,dbms,git,docker,system design"
+  },
+  {
+    "company":"Infosys",
+    "role":"Full Stack Developer",
+    "description":"react,node.js,mongodb,javascript,express,docker"
+  },
+  {
+    "company":"Zoho",
+    "role":"Software Developer",
+    "description":"java,dsa,oop,dbms,git,linux"
+  },
+  {
+    "company":"Freshworks",
+    "role":"Backend Developer",
+    "description":"node.js,express,mongodb,postgresql,redis,docker"
+  },
+  {
+    "company":"TCS",
+    "role":"System Engineer",
+    "description":"java,sql,oop,dbms,git"
+  },
+  {
+    "company":"Accenture",
+    "role":"Associate Software Engineer",
+    "description":"java,python,sql,dsa,oop"
+  },
+  {
+    "company":"Wipro",
+    "role":"Data Analyst",
+    "description":"python,sql,excel,power bi,pandas"
+  },
+  {
+    "company":"Cognizant",
+    "role":"Programmer Analyst",
+    "description":"java,sql,dsa,dbms,oop"
+  },
+  {
+    "company":"HCL",
+    "role":"QA Engineer",
+    "description":"selenium,testing,sql,automation,jira"
+  },
+  {
+    "company":"Capgemini",
+    "role":"Java Developer",
+    "description":"java,spring boot,mysql,git,maven"
+  },
+  {
+    "company":"Amazon",
+    "role":"Cloud Engineer",
+    "description":"aws,docker,kubernetes,linux,terraform"
+  },
+  {
+    "company":"Google",
+    "role":"Cloud Associate",
+    "description":"gcp,docker,kubernetes,linux"
+  },
+  {
+    "company":"NVIDIA",
+    "role":"AI Engineer",
+    "description":"python,machine learning,tensorflow,pytorch,nlp"
+  },
+  {
+    "company":"OpenAI",
+    "role":"ML Engineer",
+    "description":"python,llm,deep learning,pytorch,transformers"
+  },
+  {
+    "company":"IBM",
+    "role":"Data Scientist",
+    "description":"python,pandas,statistics,machine learning"
+  },
+  {
+    "company":"Cisco",
+    "role":"Network Engineer",
+    "description":"networking,ccna,routing,switching"
+  },
+  {
+    "company":"Palo Alto",
+    "role":"Cyber Security Analyst",
+    "description":"ceh,ethical hacking,network security"
+  },
+  {
+    "company":"Adobe",
+    "role":"UI UX Designer",
+    "description":"figma,wireframing,prototyping,ux"
+  },
+  {
+    "company":"Oracle",
+    "role":"Database Developer",
+    "description":"sql,mysql,postgresql,dbms"
+  },
+  {
+    "company":"PayPal",
+    "role":"Full Stack Engineer",
+    "description":"react,node.js,mongodb,typescript,docker"
+  },
+  {
+    "company":"Razorpay",
+    "role":"Backend Engineer",
+    "description":"node.js,postgresql,redis,docker"
+  },
+  {
+    "company":"Flipkart",
+    "role":"Software Engineer",
+    "description":"java,dsa,system design,microservices"
+  },
+  {
+    "company":"Swiggy",
+    "role":"SDE Intern",
+    "description":"java,dsa,oop,git"
+  },
+  {
+    "company":"Zomato",
+    "role":"Web Developer",
+    "description":"html,css,javascript,react"
+  },
+  {
+    "company":"SAP",
+    "role":"Associate Developer",
+    "description":"java,sql,oop,spring boot"
+  }
+]

@@ -1,0 +1,12 @@
+[project]
+name = "job-matching-agent"
+version = "0.1.0"
+requires-python = ">=3.10"
+dependencies = [
+    "pandas>=2.3.3",
+    "pymupdf>=1.27.2.3",
+    "scikit-learn>=1.7.2",
+    "sentence-transformers>=5.5.1",
+    "torch>=2.12.0",
+    "transformers>=5.10.2",
+]
