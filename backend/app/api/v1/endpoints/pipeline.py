@@ -47,7 +47,7 @@ async def full_analysis(
             raise HTTPException(status_code=404, detail="Student profile not found")
 
         # Agent 1
-        analysis = await analyze_resume(file_bytes, resume.filename)
+        analysis = await analyze_resume(file_bytes, resume.filename, target_role)
         await student_repo.update(student, full_name=analysis.get("candidate_name"), cgpa=analysis.get("cgpa"), graduation_year=analysis.get("graduation_year"), target_role=target_role, student_level=student_level, available_hours_per_day=available_hours_per_day)
         saved_resume = await ResumeRepository(db).save_analysis(str(student["_id"]), file_path, resume.filename, analysis)
 
@@ -78,6 +78,11 @@ async def full_analysis(
         msg = str(e)
         if "invalid_api_key" in msg or "AuthenticationError" in type(e).__name__:
             raise HTTPException(status_code=500, detail="Invalid GROQ_API_KEY. Get a free key at https://console.groq.com and update backend/.env")
+        if "RateLimitError" in type(e).__name__ or "rate_limit_exceeded" in msg:
+            import re as _re
+            wait = _re.search(r"try again in (\S+)", msg)
+            wait_msg = f" Try again in {wait.group(1)}" if wait else " Please wait a few minutes."
+            raise HTTPException(status_code=429, detail=f"Groq API daily token limit reached.{wait_msg} (Free tier: 100K tokens/day)")
         raise HTTPException(status_code=500, detail=f"{type(e).__name__}: {msg}")
 
     return FullAnalysisResponse(
@@ -95,6 +100,7 @@ async def full_analysis(
             graduation_year=analysis.get("graduation_year"),
             resume_score=analysis.get("resume_score", 0),
             feedback=[FeedbackSchema(**f) for f in analysis.get("feedback", [])],
+            ats_breakdown=analysis.get("ats_breakdown"),
         ),
         skill_gap=SkillGapResponse(**gap_result),
         roadmap=RoadmapResponse(**roadmap_result),

@@ -16,20 +16,33 @@ from app.core.embedder import embedder as _embedder
 _client = Groq(api_key=settings.GROQ_API_KEY)
 
 
+import time
+
+_last_call_time = 0.0
+_MIN_INTERVAL   = 2.0
+
 def _groq(prompt: str) -> str:
+    global _last_call_time
+    elapsed = time.time() - _last_call_time
+    if elapsed < _MIN_INTERVAL:
+        time.sleep(_MIN_INTERVAL - elapsed)
+    _last_call_time = time.time()
+
     for attempt in range(3):
         try:
             response = _client.chat.completions.create(
                 model=settings.GROQ_MODEL,
                 messages=[{"role": "system", "content": "You are a helpful assistant. Always respond with valid JSON only."}, {"role": "user", "content": prompt}],
                 temperature=0.1,
-                max_tokens=2048,
+                max_tokens=1024,
             )
             content = response.choices[0].message.content.strip()
             if content:
                 return content
         except Exception as e:
             if "AuthenticationError" in type(e).__name__ or "invalid_api_key" in str(e):
+                raise
+            if "RateLimitError" in type(e).__name__:
                 raise
             if attempt == 2:
                 raise
@@ -49,21 +62,12 @@ def _parse_json(raw: str) -> dict:
 
 # ─── Role Requirements via Groq ───────────────────────────────────────────────
 
-_ROLE_SKILLS_PROMPT = """You are a technical recruiter expert. List ALL skills required for the role: "{target_role}".
-
-Return ONLY valid JSON:
-{{
-  "required_skills": ["skill1", "skill2", ...],
-  "core_skills": ["must-have skill1", "must-have skill2"],
-  "nice_to_have": ["optional skill1", "optional skill2"]
-}}
-
-Include: programming languages, frameworks, tools, databases, concepts, soft skills.
-Return 15-25 required skills total."""
+_ROLE_SKILLS_PROMPT = """List skills required for: "{target_role}". Return ONLY JSON:
+{{"required_skills":["skill1","skill2"],"core_skills":["must1"],"nice_to_have":["opt1"]}}
+Include 12-18 skills total (languages, frameworks, tools, databases, concepts)."""
 
 def get_role_requirements(target_role: str) -> dict:
-    prompt = _ROLE_SKILLS_PROMPT.format(target_role=target_role)
-    return _parse_json(_groq(prompt))
+    return _parse_json(_groq(_ROLE_SKILLS_PROMPT.format(target_role=target_role)))
 
 
 # ─── Semantic Skill Matching ──────────────────────────────────────────────────
@@ -89,27 +93,14 @@ def semantic_match(candidate_skills: List[str], required_skills: List[str], thre
 
 # ─── Priority Ranking via Groq ────────────────────────────────────────────────
 
-_PRIORITY_PROMPT = """You are a career coach. Given these missing skills for "{target_role}", rank them by priority.
-
-Missing skills: {missing_skills}
-
-Return ONLY valid JSON:
-{{
-  "priority_skills": ["highest priority skill first", ...],
-  "recommended_learning_order": ["learn this first", "then this", ...],
-  "rationale": "brief explanation"
-}}
-
-Consider: job market demand, prerequisite dependencies, learning difficulty."""
+_PRIORITY_PROMPT = """Rank these missing skills for "{target_role}" by priority. Return ONLY JSON:
+{{"priority_skills":["highest first"],"recommended_learning_order":["learn this first"],"rationale":"brief"}}
+Missing: {missing_skills}"""
 
 def prioritize_skills(missing_skills: List[str], target_role: str) -> dict:
     if not missing_skills:
         return {"priority_skills": [], "recommended_learning_order": [], "rationale": "No missing skills"}
-
-    prompt = _PRIORITY_PROMPT.format(
-        target_role=target_role,
-        missing_skills=", ".join(missing_skills)
-    )
+    prompt = _PRIORITY_PROMPT.format(target_role=target_role, missing_skills=", ".join(missing_skills[:15]))
     return _parse_json(_groq(prompt))
 
 

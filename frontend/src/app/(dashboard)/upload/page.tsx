@@ -61,7 +61,13 @@ export default function UploadPage() {
       toast.success("Analysis complete!");
       setTimeout(() => router.push("/dashboard"), 1200);
     } catch (err: any) {
-      toast.error(err.response?.data?.detail || "Analysis failed. Check your GROQ_API_KEY.");
+      const detail = err.response?.data?.detail || "Analysis failed.";
+      const status = err.response?.status;
+      if (status === 429) {
+        toast.error(detail, { duration: 8000 });
+      } else {
+        toast.error(detail);
+      }
       setStatuses(["pending", "pending", "pending", "pending"]);
     } finally {
       setIsAnalyzing(false);
