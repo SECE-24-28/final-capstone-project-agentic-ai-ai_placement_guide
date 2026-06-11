@@ -1,8 +1,8 @@
 import uuid
+import traceback
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException
-from sentence_transformers import SentenceTransformer
 
 from app.db.session import get_db
 from app.core.security import get_current_user
@@ -19,9 +19,9 @@ from app.schemas.schemas import (
     SkillSchema, EducationSchema, ExperienceSchema, ProjectSchema, CertificationSchema, FeedbackSchema,
 )
 from app.core.config import settings
+from app.core.embedder import embedder as _embedder
 
 router = APIRouter(prefix="/analyze", tags=["Full Pipeline"])
-_embedder = SentenceTransformer("all-MiniLM-L6-v2")
 
 
 @router.post("/full", response_model=FullAnalysisResponse)
@@ -33,42 +33,49 @@ async def full_analysis(
     db=Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    file_bytes = await resume.read()
-    upload_dir = Path(settings.UPLOAD_DIR)
-    upload_dir.mkdir(parents=True, exist_ok=True)
-    file_path = str(upload_dir / f"{uuid.uuid4()}_{resume.filename}")
-    with open(file_path, "wb") as f:
-        f.write(file_bytes)
+    try:
+        file_bytes = await resume.read()
+        upload_dir = Path(settings.UPLOAD_DIR)
+        upload_dir.mkdir(parents=True, exist_ok=True)
+        file_path = str(upload_dir / f"{uuid.uuid4()}_{resume.filename}")
+        with open(file_path, "wb") as f:
+            f.write(file_bytes)
 
-    student_repo = StudentRepository(db)
-    student = await student_repo.get_by_user_id(str(current_user["_id"]))
-    if not student:
-        raise HTTPException(status_code=404, detail="Student profile not found")
+        student_repo = StudentRepository(db)
+        student = await student_repo.get_by_user_id(str(current_user["_id"]))
+        if not student:
+            raise HTTPException(status_code=404, detail="Student profile not found")
 
-    # Agent 1
-    analysis = await analyze_resume(file_bytes, resume.filename)
-    await student_repo.update(student, full_name=analysis.get("candidate_name"), cgpa=analysis.get("cgpa"), graduation_year=analysis.get("graduation_year"), target_role=target_role, student_level=student_level, available_hours_per_day=available_hours_per_day)
-    saved_resume = await ResumeRepository(db).save_analysis(str(student["_id"]), file_path, resume.filename, analysis)
+        # Agent 1
+        analysis = await analyze_resume(file_bytes, resume.filename)
+        await student_repo.update(student, full_name=analysis.get("candidate_name"), cgpa=analysis.get("cgpa"), graduation_year=analysis.get("graduation_year"), target_role=target_role, student_level=student_level, available_hours_per_day=available_hours_per_day)
+        saved_resume = await ResumeRepository(db).save_analysis(str(student["_id"]), file_path, resume.filename, analysis)
 
-    # Agent 2
-    skill_names = [s["name"] for s in analysis.get("skills", [])]
-    gap_result = await analyze_skill_gap(skill_names, target_role)
-    await SkillGapRepository(db).save(str(student["_id"]), gap_result)
+        # Agent 2
+        skill_names = [s["name"] for s in analysis.get("skills", [])]
+        gap_result = await analyze_skill_gap(skill_names, target_role)
+        await SkillGapRepository(db).save(str(student["_id"]), gap_result)
 
-    # Agent 3
-    roadmap_result = await generate_roadmap(missing_skills=gap_result["missing_skills"], student_level=student_level, available_hours_per_day=available_hours_per_day, target_role=target_role)
-    await RoadmapRepository(db).save(str(student["_id"]), roadmap_result)
+        # Agent 3
+        roadmap_result = await generate_roadmap(missing_skills=gap_result["missing_skills"], student_level=student_level, available_hours_per_day=available_hours_per_day, target_role=target_role)
+        await RoadmapRepository(db).save(str(student["_id"]), roadmap_result)
 
-    # Agent 4
-    job_repo = JobRepository(db)
-    query_emb = _embedder.encode(target_role).tolist()
-    jobs_list = await job_repo.semantic_search(query_emb, top_k=30)
-    if len(jobs_list) < 5:
-        jobs_list = await job_repo.get_all_active()
+        # Agent 4
+        job_repo = JobRepository(db)
+        query_emb = _embedder.encode(target_role).tolist()
+        jobs_list = await job_repo.semantic_search(query_emb, top_k=30)
+        if len(jobs_list) < 5:
+            jobs_list = await job_repo.get_all_active()
 
-    jobs = [{"id": str(j["_id"]), "company": j["company"], "role": j["role"], "required_skills": j.get("required_skills", []), "min_cgpa": j.get("min_cgpa"), "batch_years": j.get("batch_years"), "min_experience_months": j.get("min_experience_months", 0), "required_certifications": j.get("required_certifications")} for j in jobs_list]
-    cert_names = [c["name"] for c in analysis.get("certifications", [])]
-    match_result = await match_jobs(skills=skill_names, resume_score=analysis.get("resume_score", 0), cgpa=analysis.get("cgpa"), graduation_year=analysis.get("graduation_year"), experience_months=sum(ex.get("duration_months") or 0 for ex in analysis.get("experience", [])), certifications=cert_names, jobs=jobs)
+        jobs = [{"id": str(j["_id"]), "company": j["company"], "role": j["role"], "required_skills": j.get("required_skills", []), "min_cgpa": j.get("min_cgpa"), "batch_years": j.get("batch_years"), "min_experience_months": j.get("min_experience_months", 0), "required_certifications": j.get("required_certifications")} for j in jobs_list]
+        cert_names = [c["name"] for c in analysis.get("certifications", [])]
+        match_result = await match_jobs(skills=skill_names, resume_score=analysis.get("resume_score", 0), cgpa=analysis.get("cgpa"), graduation_year=analysis.get("graduation_year"), experience_months=sum(ex.get("duration_months") or 0 for ex in analysis.get("experience", [])), certifications=cert_names, jobs=jobs)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"{type(e).__name__}: {str(e)}")
 
     return FullAnalysisResponse(
         resume_analysis=ResumeAnalysisResponse(

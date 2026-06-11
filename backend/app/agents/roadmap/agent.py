@@ -15,18 +15,31 @@ _client = Groq(api_key=settings.GROQ_API_KEY)
 
 
 def _groq(prompt: str) -> str:
-    response = _client.chat.completions.create(
-        model=settings.GROQ_MODEL,
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.3,
-        max_tokens=8192,
-    )
-    return response.choices[0].message.content.strip()
+    for attempt in range(3):
+        try:
+            response = _client.chat.completions.create(
+                model=settings.GROQ_MODEL,
+                messages=[{"role": "system", "content": "You are a helpful assistant. Always respond with valid JSON only."}, {"role": "user", "content": prompt}],
+                temperature=0.3,
+                max_tokens=4096,
+            )
+            content = response.choices[0].message.content.strip()
+            if content:
+                return content
+        except Exception as e:
+            if attempt == 2:
+                raise
+    return "{}"
 
 
 def _parse_json(raw: str) -> dict:
-    raw = re.sub(r"^```json\s*", "", raw.strip())
+    raw = raw.strip()
+    raw = re.sub(r"^```json\s*", "", raw)
+    raw = re.sub(r"^```\s*", "", raw)
     raw = re.sub(r"\s*```$", "", raw)
+    match = re.search(r"\{.*\}", raw, re.DOTALL)
+    if match:
+        raw = match.group(0)
     return json.loads(raw)
 
 
