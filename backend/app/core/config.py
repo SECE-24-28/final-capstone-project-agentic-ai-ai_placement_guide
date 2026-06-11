@@ -3,8 +3,10 @@ from functools import lru_cache
 
 
 class Settings(BaseSettings):
+    model_config = {"env_file": ".env", "env_file_encoding": "utf-8", "extra": "ignore"}
+
     APP_NAME: str = "AI Placement Preparation Agent"
-    DEBUG: bool = False
+    APP_DEBUG: bool = False
 
     MONGODB_URL: str = "mongodb://localhost:27017"
     MONGODB_DB: str = "placement_ai"
@@ -18,9 +20,6 @@ class Settings(BaseSettings):
 
     UPLOAD_DIR: str = "uploads"
     MAX_FILE_SIZE_MB: int = 10
-
-    class Config:
-        env_file = ".env"
 
 
 @lru_cache

@@ -1,41 +1,53 @@
 """
 Agent 4: Job Matching Agent
-Dynamic scoring: auto-detects available criteria per job and weights accordingly.
-No fixed formula — weights are normalized based on what each job posting provides.
+Dynamic Scoring — weights auto-adjust based on criteria available in each job posting.
+
+Job Type A → Skills(70%) + Resume(30%)
+Job Type B → Skills(50%) + Resume(20%) + CGPA(30%)
+Job Type C → Skills(50%) + Resume(20%) + Experience(30%)
+Job Type D → Skills(40%) + Resume(20%) + CGPA(20%) + Batch(10%) + Certs(10%)
+
+No fixed formula — engine detects available fields and normalizes weights automatically.
 """
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Tuple
 import numpy as np
-from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
+from app.core.embedder import embedder as _embedder
 
-_embedder = SentenceTransformer("all-MiniLM-L6-v2")
 
+# ─── Individual Scorers ───────────────────────────────────────────────────────
 
-# ─── Dynamic Scoring Engine ───────────────────────────────────────────────────
-
-def _skill_score(candidate_skills: List[str], required_skills: List[str]) -> tuple[float, List[str]]:
-    """Semantic skill matching using embeddings."""
+def _skill_score(candidate_skills: List[str], required_skills: List[str]) -> Tuple[float, List[str]]:
+    """
+    Semantic skill matching via sentence-transformer embeddings.
+    cosine similarity >= 0.72 → matched.
+    Returns (score_0_to_100, missing_skills_list)
+    """
     if not required_skills:
         return 100.0, []
     if not candidate_skills:
-        return 0.0, required_skills
+        return 0.0, list(required_skills)
 
     cand_emb = _embedder.encode([s.lower() for s in candidate_skills])
-    req_emb = _embedder.encode([s.lower() for s in required_skills])
-    sim_matrix = cosine_similarity(cand_emb, req_emb)
+    req_emb  = _embedder.encode([s.lower() for s in required_skills])
+    sim_matrix = cosine_similarity(cand_emb, req_emb)  # shape: (n_cand, n_req)
 
-    matched_count = 0
-    missing = []
+    matched, missing = 0, []
     for j, req in enumerate(required_skills):
-        if np.max(sim_matrix[:, j]) >= 0.72:
-            matched_count += 1
+        if float(np.max(sim_matrix[:, j])) >= 0.72:
+            matched += 1
         else:
             missing.append(req)
 
-    return round((matched_count / len(required_skills)) * 100, 1), missing
+    return round((matched / len(required_skills)) * 100, 1), missing
 
 
-def _cgpa_score(candidate_cgpa: Optional[float], min_cgpa: Optional[float]) -> float:
+def _cgpa_score(candidate_cgpa: Optional[float], min_cgpa: Optional[float]) -> Optional[float]:
+    """
+    100  → candidate meets/exceeds requirement
+    <100 → proportional penalty
+    None → this criterion not present in job posting (skip)
+    """
     if candidate_cgpa is None or min_cgpa is None:
         return None
     if candidate_cgpa >= min_cgpa:
@@ -44,33 +56,41 @@ def _cgpa_score(candidate_cgpa: Optional[float], min_cgpa: Optional[float]) -> f
     return max(0.0, round((1 - deficit / min_cgpa) * 100, 1))
 
 
-def _experience_score(candidate_months: Optional[int], required_months: Optional[int]) -> float:
+def _experience_score(candidate_months: Optional[int], required_months: Optional[int]) -> Optional[float]:
+    """
+    None  → job has no experience requirement (skip)
+    0 req → fresher ok → skip
+    """
     if required_months is None or required_months == 0:
         return None
-    if candidate_months is None:
+    if candidate_months is None or candidate_months == 0:
         return 0.0
     if candidate_months >= required_months:
         return 100.0
     return round((candidate_months / required_months) * 100, 1)
 
 
-def _certification_score(candidate_certs: List[str], required_certs: Optional[List[str]]) -> float:
+def _certification_score(candidate_certs: List[str], required_certs: Optional[List[str]]) -> Optional[float]:
+    """None → job doesn't require certs (skip)"""
     if not required_certs:
         return None
     if not candidate_certs:
         return 0.0
-    candidate_lower = {c.lower() for c in candidate_certs}
-    matched = sum(1 for c in required_certs if c.lower() in candidate_lower)
+    cand_lower = {c.lower() for c in candidate_certs}
+    matched = sum(1 for c in required_certs if c.lower() in cand_lower)
     return round((matched / len(required_certs)) * 100, 1)
 
 
-def _degree_score(candidate_graduation_year: Optional[int], batch_years: Optional[List[int]]) -> float:
+def _batch_score(candidate_year: Optional[int], batch_years: Optional[List[int]]) -> Optional[float]:
+    """None → job has no batch filter (skip)"""
     if not batch_years:
         return None
-    if candidate_graduation_year is None:
-        return 50.0
-    return 100.0 if candidate_graduation_year in batch_years else 0.0
+    if candidate_year is None:
+        return 50.0   # partial credit — unknown year
+    return 100.0 if candidate_year in batch_years else 0.0
 
+
+# ─── Dynamic Weight Engine ────────────────────────────────────────────────────
 
 def calculate_dynamic_score(
     candidate_skills: List[str],
@@ -82,69 +102,66 @@ def calculate_dynamic_score(
     job: Dict[str, Any],
 ) -> Dict[str, Any]:
     """
-    Dynamically weights scoring based on criteria present in the job posting.
-    Each criterion gets a weight only if it exists in the job posting.
-    resume_score is always included as a base quality signal.
+    Step 1 — Compute each individual score (None = criterion not in job).
+    Step 2 — Build weight map: Skills gets highest base weight.
+             Resume score is always included as quality baseline.
+             Optional criteria share the remaining weight equally.
+    Step 3 — Normalize weights to sum = 1.0.
+    Step 4 — Weighted sum = final match score.
+
+    Examples:
+      Job A (Skills only)       → skill:0.70  resume:0.30
+      Job B (Skills + CGPA)     → skill:0.50  resume:0.20  cgpa:0.30
+      Job C (Skills + Exp)      → skill:0.50  resume:0.20  exp:0.30
+      Job D (Skills+CGPA+Batch+Certs) → skill:0.40 resume:0.20 cgpa:0.15 batch:0.15 certs:0.10
     """
-    scores = {}
-    weights = {}
-
-    # Always score skills (primary criterion)
     skill_sc, missing = _skill_score(candidate_skills, job.get("required_skills", []))
-    scores["skill_score"] = skill_sc
-    weights["skill_score"] = 0.50
+    cgpa_sc   = _cgpa_score(candidate_cgpa, job.get("min_cgpa"))
+    exp_sc    = _experience_score(candidate_experience_months, job.get("min_experience_months"))
+    cert_sc   = _certification_score(candidate_certifications, job.get("required_certifications"))
+    batch_sc  = _batch_score(candidate_graduation_year, job.get("batch_years"))
 
-    # Always include resume quality as baseline
-    scores["resume_score"] = resume_score
-    weights["resume_score"] = 0.20
+    # Collect present optional criteria
+    optional: List[Tuple[str, float]] = []
+    if cgpa_sc  is not None: optional.append(("cgpa_score",          cgpa_sc))
+    if exp_sc   is not None: optional.append(("experience_score",    exp_sc))
+    if cert_sc  is not None: optional.append(("certification_score", cert_sc))
+    if batch_sc is not None: optional.append(("batch_score",         batch_sc))
 
-    remaining_weight = 0.30
-    optional_criteria = []
+    # Base weights
+    SKILL_WEIGHT  = 0.50 if optional else 0.70
+    RESUME_WEIGHT = 0.20 if optional else 0.30
+    remaining     = round(1.0 - SKILL_WEIGHT - RESUME_WEIGHT, 4)
 
-    cgpa_sc = _cgpa_score(candidate_cgpa, job.get("min_cgpa"))
-    if cgpa_sc is not None:
-        optional_criteria.append(("cgpa_score", cgpa_sc))
+    scores  = {"skill_score": skill_sc, "resume_score": resume_score}
+    weights = {"skill_score": SKILL_WEIGHT, "resume_score": RESUME_WEIGHT}
 
-    exp_sc = _experience_score(candidate_experience_months, job.get("min_experience_months"))
-    if exp_sc is not None:
-        optional_criteria.append(("experience_score", exp_sc))
+    if optional:
+        per = round(remaining / len(optional), 4)
+        for name, val in optional:
+            scores[name]  = val
+            weights[name] = per
 
-    cert_sc = _certification_score(candidate_certifications, job.get("required_certifications"))
-    if cert_sc is not None:
-        optional_criteria.append(("certification_score", cert_sc))
-
-    batch_sc = _degree_score(candidate_graduation_year, job.get("batch_years"))
-    if batch_sc is not None:
-        optional_criteria.append(("batch_score", batch_sc))
-
-    # Distribute remaining 30% equally among available optional criteria
-    if optional_criteria:
-        per_criterion = remaining_weight / len(optional_criteria)
-        for name, val in optional_criteria:
-            scores[name] = val
-            weights[name] = per_criterion
-
-    # Weighted average
-    final_score = sum(scores[k] * weights[k] for k in scores)
+    final_score = round(sum(scores[k] * weights[k] for k in scores), 1)
 
     return {
-        "final_score": round(final_score, 1),
-        "score_breakdown": {**scores, "criteria_used": list(scores.keys())},
+        "final_score": final_score,
+        "score_breakdown": {
+            **scores,
+            "weights_used": {k: round(weights[k] * 100) for k in weights},
+            "criteria_used": list(scores.keys()),
+        },
         "missing_skills": missing,
     }
 
 
 # ─── Placement Prediction ─────────────────────────────────────────────────────
 
-def predict_placement(match_score: float) -> str:
-    if match_score >= 80:
-        return "Highly Likely"
-    elif match_score >= 65:
-        return "Likely"
-    elif match_score >= 50:
-        return "Possible"
-    elif match_score >= 35:
-        return "Unlikely"
+def predict_placement(score: float) -> str:
+    if score >= 80: return "Highly Likely"
+    if score >= 65: return "Likely"
+    if score >= 50: return "Possible"
+    if score >= 35: return "Unlikely"
     return "Not Ready"
 
 
@@ -163,35 +180,36 @@ async def match_jobs(
 
     for job in jobs:
         scored = calculate_dynamic_score(
-            skills, resume_score, cgpa, graduation_year,
-            experience_months, certifications, job
+            skills, resume_score, cgpa,
+            graduation_year, experience_months, certifications, job,
         )
         results.append({
-            "job_id": job["id"],
-            "company": job["company"],
-            "role": job["role"],
-            "match_score": scored["final_score"],
-            "score_breakdown": scored["score_breakdown"],
-            "missing_skills": scored["missing_skills"],
+            "job_id":              job["id"],
+            "company":             job["company"],
+            "role":                job["role"],
+            "job_type":            job.get("job_type", "A"),
+            "match_score":         scored["final_score"],
+            "score_breakdown":     scored["score_breakdown"],
+            "missing_skills":      scored["missing_skills"],
             "placement_prediction": predict_placement(scored["final_score"]),
         })
 
     results.sort(key=lambda x: x["match_score"], reverse=True)
 
-    # Company rankings: best job per company
-    company_seen = {}
+    # Best match per company
+    seen: Dict[str, dict] = {}
     for r in results:
         c = r["company"]
-        if c not in company_seen or r["match_score"] > company_seen[c]["match_score"]:
-            company_seen[c] = {"company": c, "best_role": r["role"], "match_score": r["match_score"]}
-    company_rankings = sorted(company_seen.values(), key=lambda x: x["match_score"], reverse=True)
+        if c not in seen or r["match_score"] > seen[c]["match_score"]:
+            seen[c] = {"company": c, "best_role": r["role"], "match_score": r["match_score"]}
+    company_rankings = sorted(seen.values(), key=lambda x: x["match_score"], reverse=True)
 
     top_score = results[0]["match_score"] if results else 0.0
 
     return {
-        "job_matches": results[:10],
-        "company_rankings": company_rankings[:10],
-        "match_probability": top_score,
+        "job_matches":        results[:10],
+        "company_rankings":   company_rankings[:10],
+        "match_probability":  top_score,
         "placement_prediction": predict_placement(top_score),
         "total_jobs_analyzed": len(jobs),
     }

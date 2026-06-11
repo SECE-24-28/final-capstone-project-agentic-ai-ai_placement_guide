@@ -45,6 +45,25 @@ interface AnalysisState {
   setFullAnalysis: (data: any) => void;
 }
 
+// ─── Todo / Checklist Store (persisted) ─────────────────────────────────────
+
+interface TodoState {
+  checked: Record<string, boolean>; // key = "daily-{day}-{taskIdx}" | "weekly-{week}-{goalIdx}"
+  toggle: (key: string) => void;
+  resetTodos: () => void;
+}
+
+export const useTodoStore = create<TodoState>()(
+  persist(
+    (set) => ({
+      checked: {},
+      toggle: (key) => set((s) => ({ checked: { ...s.checked, [key]: !s.checked[key] } })),
+      resetTodos: () => set({ checked: {} }),
+    }),
+    { name: "roadmap-todos" }
+  )
+);
+
 export const useAnalysisStore = create<AnalysisState>()((set) => ({
   resumeAnalysis: null,
   skillGap: null,

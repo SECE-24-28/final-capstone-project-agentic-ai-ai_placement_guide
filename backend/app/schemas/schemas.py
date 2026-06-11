@@ -100,6 +100,7 @@ class SkillGapResponse(BaseModel):
     priority_skills: List[str]
     recommended_learning_order: List[str]
     target_role: str
+    all_required_skills: Optional[List[str]] = []
 
 
 # ─── Roadmap ──────────────────────────────────────────────────────────────────
@@ -112,7 +113,7 @@ class RoadmapRequest(BaseModel):
 
 
 class ResourceSchema(BaseModel):
-    skill: str
+    skill: Optional[str] = None
     title: str
     url: str
     type: str
@@ -146,7 +147,9 @@ class ScoreBreakdown(BaseModel):
     cgpa_score: Optional[float] = None
     experience_score: Optional[float] = None
     certification_score: Optional[float] = None
+    batch_score: Optional[float] = None
     resume_score: float
+    weights_used: Optional[dict] = None
     criteria_used: List[str]
 
 
@@ -154,6 +157,7 @@ class JobMatchResult(BaseModel):
     job_id: str
     company: str
     role: str
+    job_type: Optional[str] = "A"
     match_score: float
     score_breakdown: ScoreBreakdown
     missing_skills: List[str]

@@ -26,7 +26,7 @@ async def match_jobs_endpoint(payload: JobMatchRequest, db=Depends(get_db), curr
     else:
         jobs_list = await job_repo.get_all_active()
 
-    jobs = [{"id": str(j["_id"]), "company": j["company"], "role": j["role"], "required_skills": j.get("required_skills", []), "min_cgpa": j.get("min_cgpa"), "batch_years": j.get("batch_years"), "min_experience_months": j.get("min_experience_months", 0), "required_certifications": j.get("required_certifications")} for j in jobs_list]
+    jobs = [{"id": str(j["_id"]), "company": j["company"], "role": j["role"], "job_type": j.get("job_type", "A"), "required_skills": j.get("required_skills", []), "min_cgpa": j.get("min_cgpa"), "batch_years": j.get("batch_years"), "min_experience_months": j.get("min_experience_months", 0), "required_certifications": j.get("required_certifications")} for j in jobs_list]
 
     result = await match_jobs(skills=payload.skills, resume_score=payload.resume_score, cgpa=payload.cgpa, graduation_year=payload.graduation_year, experience_months=payload.experience_months or 0, certifications=payload.certifications or [], jobs=jobs)
 
@@ -34,7 +34,7 @@ async def match_jobs_endpoint(payload: JobMatchRequest, db=Depends(get_db), curr
         await job_repo.upsert_match(str(student["_id"]), match["job_id"], {"match_score": match["match_score"], "score_breakdown": match["score_breakdown"], "missing_skills": match["missing_skills"], "placement_prediction": match["placement_prediction"]})
 
     return JobMatchResponse(
-        job_matches=[JobMatchResult(job_id=m["job_id"], company=m["company"], role=m["role"], match_score=m["match_score"], score_breakdown=ScoreBreakdown(**m["score_breakdown"]), missing_skills=m["missing_skills"], placement_prediction=m["placement_prediction"]) for m in result["job_matches"]],
+        job_matches=[JobMatchResult(job_id=m["job_id"], company=m["company"], role=m["role"], job_type=m.get("job_type","A"), match_score=m["match_score"], score_breakdown=ScoreBreakdown(**m["score_breakdown"]), missing_skills=m["missing_skills"], placement_prediction=m["placement_prediction"]) for m in result["job_matches"]],
         company_rankings=result["company_rankings"],
         match_probability=result["match_probability"],
         placement_prediction=result["placement_prediction"],

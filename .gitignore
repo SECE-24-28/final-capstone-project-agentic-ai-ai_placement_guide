@@ -9,19 +9,23 @@ venv/
 dist/
 build/
 
-# Environment
+# Environment — NEVER commit these
 .env
 .env.local
 .env.*.local
+backend/.env
 
 # Uploads
+uploads/
 backend/uploads/
 backend/uvicorn_log.txt
 
 # Node
+node_modules/
 frontend/node_modules/
 frontend/.next/
 frontend/out/
+.next/
 
 # Logs
 *.log
@@ -29,3 +33,11 @@ frontend/out/
 # OS
 .DS_Store
 Thumbs.db
+
+# Pytest
+.pytest_cache/
+htmlcov/
+.coverage
+
+# Models cache (large files)
+backend/.cache/
