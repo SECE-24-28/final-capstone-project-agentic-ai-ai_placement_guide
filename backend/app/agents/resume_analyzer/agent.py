@@ -59,7 +59,7 @@ def _groq_throttled(prompt: str) -> str:
                     {"role": "user",   "content": prompt},
                 ],
                 temperature=0.1,
-                max_tokens=2048,
+                max_tokens=4096,
             )
             return response.choices[0].message.content.strip()
         except Exception as e:
@@ -106,49 +106,60 @@ def extract_text(file_bytes: bytes, filename: str) -> str:
 
 # ─── Groq: Structured Extraction ONLY ────────────────────────────────────────
 
-_EXTRACTION_PROMPT = """Extract structured data from this resume. Return ONLY valid JSON.
+_EXTRACTION_PROMPT = """Extract ALL structured data from this resume. Return ONLY valid JSON. Do NOT skip any projects, experiences, or certifications — extract every single one.
 
 Resume:
 {resume_text}
 
-Return:
-{{"candidate_name":"name or null","email":"email or null","phone":"phone or null","cgpa":null,"graduation_year":null,
-"skills":[{{"name":"skill","category":"Programming/Framework/Tool/Database/Cloud","proficiency":"Beginner/Intermediate/Advanced"}}],
-"education":[{{"degree":"degree","institution":"college","field_of_study":"field","start_year":null,"end_year":null,"cgpa":null}}],
-"experience":[{{"company":"company","role":"role","start_date":"date","end_date":"date","description":"summary","duration_months":null}}],
-"projects":[{{"name":"name","description":"desc","tech_stack":["tech"],"url":null}}],
-"certifications":[{{"name":"name","issuer":"issuer","year":null}}]}}"""
+Return this exact JSON structure (include ALL items found, not just one example):
+{{"candidate_name":"full name or null","email":"email or null","phone":"phone or null","cgpa":null,"graduation_year":null,
+"skills":[{{"name":"skill name","category":"Programming/Framework/Tool/Database/Cloud/Other","proficiency":"Beginner/Intermediate/Advanced"}}],
+"education":[{{"degree":"degree","institution":"institution name","field_of_study":"field","start_year":null,"end_year":null,"cgpa":null}}],
+"experience":[{{"company":"company name","role":"job title","start_date":"date","end_date":"date or Present","description":"full description of responsibilities and achievements","duration_months":null}}],
+"projects":[{{"name":"project name","description":"full project description including what it does and your contribution","tech_stack":["tech1","tech2"],"url":null}}],
+"certifications":[{{"name":"certification name","issuer":"issuing organization","year":null}}]}}"""
 
 
 def extract_resume_data(resume_text: str) -> dict:
-    prompt = _EXTRACTION_PROMPT.format(resume_text=resume_text[:3000])
+    prompt = _EXTRACTION_PROMPT.format(resume_text=resume_text[:6000])
     return _parse_json(_groq_throttled(prompt))
 
 
 # ─── ATS Signal 1: Keyword Match Rate (25 pts) ───────────────────────────────
-# Common tech/professional keywords found in job descriptions
+# Dynamic: extract keywords from job description / target role text
 
-_TECH_KEYWORDS = {
-    "python","java","javascript","typescript","c++","c#","go","rust","kotlin","scala",
-    "react","angular","vue","node","django","flask","fastapi","spring","express",
-    "sql","mysql","postgresql","mongodb","redis","elasticsearch","cassandra",
-    "aws","azure","gcp","docker","kubernetes","terraform","ci/cd","devops","linux",
-    "machine learning","deep learning","nlp","data science","pandas","numpy","tensorflow","pytorch",
-    "git","github","agile","scrum","rest","api","microservices","system design",
-    "html","css","tailwind","bootstrap","graphql","kafka","spark","hadoop",
-    "oop","data structures","algorithms","problem solving","communication","teamwork",
-    "leadership","project management","testing","debugging","optimization",
-}
+def _extract_keywords(text: str) -> set:
+    """Extract meaningful tokens (nouns, proper nouns, technical terms) from text."""
+    doc = _nlp(text.lower())
+    tokens = set()
+    for token in doc:
+        if not token.is_stop and not token.is_punct and len(token.text) > 2:
+            tokens.add(token.lemma_)
+    # Also capture multi-word phrases like "machine learning", "data structures"
+    for chunk in doc.noun_chunks:
+        phrase = chunk.text.strip()
+        if len(phrase) > 3:
+            tokens.add(phrase)
+    return tokens
 
-def keyword_match_score(resume_text: str) -> tuple[float, dict]:
-    """Signal 1: Resume keywords vs industry standard JD keywords (25 pts)."""
-    text_lower = resume_text.lower()
-    matched = {kw for kw in _TECH_KEYWORDS if kw in text_lower}
-    score = min(100.0, round((len(matched) / 30) * 100, 1))  # 30 keywords = full score
+
+def keyword_match_score(resume_text: str, jd_text: str = "") -> tuple[float, dict]:
+    """Signal 1: Resume keywords vs job description keywords (25 pts)."""
+    if not jd_text.strip():
+        # Fallback: treat target_role string as minimal JD
+        jd_text = jd_text or resume_text  # no-op: gives 100 — caller should pass role
+    jd_keywords = _extract_keywords(jd_text)
+    resume_keywords = _extract_keywords(resume_text)
+    if not jd_keywords:
+        return 100.0, {"matched_keywords": [], "matched_count": 0, "total_jd_keywords": 0}
+    matched = jd_keywords & resume_keywords
+    score = round(min((len(matched) / len(jd_keywords)) * 100, 100.0), 1)
+    missing = sorted(jd_keywords - resume_keywords)[:15]
     return score, {
-        "matched_keywords": sorted(matched),
+        "matched_keywords": sorted(matched)[:20],
+        "missing_keywords": missing,
         "matched_count": len(matched),
-        "total_checked": len(_TECH_KEYWORDS),
+        "total_jd_keywords": len(jd_keywords),
     }
 
 
@@ -352,7 +363,8 @@ def calculate_ats_score(
     Compute all 7 ATS signals and combine into final score.
     Returns score + per-signal breakdown + feedback list.
     """
-    s1, d1 = keyword_match_score(resume_text)
+    # Use target_role as the JD proxy for keyword extraction
+    s1, d1 = keyword_match_score(resume_text, target_role)
     s2, d2 = parseability_score(resume_text, file_bytes, filename)
     s3, d3 = section_detection_score(resume_text)
     s4, d4 = quantified_achievements_score(resume_text)
@@ -418,8 +430,18 @@ def calculate_ats_score(
     else:
         feedback.append({"category": "Format", "message": "ATS-friendly format detected", "severity": "info"})
 
+    readiness = round(
+        s1 * 0.35 +
+        s2 * 0.20 +
+        s4 * 0.20 +
+        s3 * 0.15 +
+        s7 * 0.10,
+        1
+    )
+
     return {
         "resume_score": resume_score,
+        "readiness_score": readiness,
         "feedback": feedback,
         "ats_breakdown": {
             "keyword_match":    {"score": s1, "weight": "25%", **d1},
@@ -460,7 +482,8 @@ async def analyze_resume(file_bytes: bytes, filename: str, target_role: str = "S
         "projects":        parsed.get("projects", []),
         "certifications":  parsed.get("certifications", []),
         "resume_score":    ats["resume_score"],
+        "readiness_score": ats["readiness_score"],
         "feedback":        ats["feedback"],
-        "ats_breakdown":   ats["ats_breakdown"],   # new: per-signal details
+        "ats_breakdown":   ats["ats_breakdown"],
         "embedding":       embedding,
     }

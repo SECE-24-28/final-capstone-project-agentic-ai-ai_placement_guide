@@ -82,6 +82,7 @@ class ResumeAnalysisResponse(BaseModel):
     cgpa: Optional[float] = None
     graduation_year: Optional[int] = None
     resume_score: float = 0.0
+    readiness_score: float = 0.0
     feedback: List[FeedbackSchema] = []
     ats_breakdown: Optional[dict] = None
 
@@ -136,6 +137,7 @@ class RoadmapResponse(BaseModel):
 class JobMatchRequest(BaseModel):
     skills: List[str]
     resume_score: float
+    resume_raw_text: Optional[str] = ""
     cgpa: Optional[float] = None
     graduation_year: Optional[int] = None
     experience_months: Optional[int] = 0

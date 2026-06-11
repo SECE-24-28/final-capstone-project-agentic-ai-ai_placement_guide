@@ -61,6 +61,7 @@ async def analyze_resume_endpoint(
         cgpa=analysis.get("cgpa"),
         graduation_year=analysis.get("graduation_year"),
         resume_score=analysis.get("resume_score", 0),
+        readiness_score=analysis.get("readiness_score", 0),
         feedback=[FeedbackSchema(**f) for f in analysis.get("feedback", [])],
     )
 

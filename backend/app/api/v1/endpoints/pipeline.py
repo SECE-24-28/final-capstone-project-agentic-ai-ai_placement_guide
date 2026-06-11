@@ -69,7 +69,7 @@ async def full_analysis(
 
         jobs = [{"id": str(j["_id"]), "company": j["company"], "role": j["role"], "job_type": j.get("job_type", "A"), "required_skills": j.get("required_skills", []), "min_cgpa": j.get("min_cgpa"), "batch_years": j.get("batch_years"), "min_experience_months": j.get("min_experience_months", 0), "required_certifications": j.get("required_certifications")} for j in jobs_list]
         cert_names = [c["name"] for c in analysis.get("certifications", [])]
-        match_result = await match_jobs(skills=skill_names, resume_score=analysis.get("resume_score", 0), cgpa=analysis.get("cgpa"), graduation_year=analysis.get("graduation_year"), experience_months=sum(ex.get("duration_months") or 0 for ex in analysis.get("experience", [])), certifications=cert_names, jobs=jobs)
+        match_result = await match_jobs(skills=skill_names, resume_score=analysis.get("resume_score", 0), resume_raw_text=analysis.get("raw_text", ""), cgpa=analysis.get("cgpa"), graduation_year=analysis.get("graduation_year"), experience_months=sum(ex.get("duration_months") or 0 for ex in analysis.get("experience", [])), certifications=cert_names, jobs=jobs)
 
     except HTTPException:
         raise

@@ -28,7 +28,7 @@ async def match_jobs_endpoint(payload: JobMatchRequest, db=Depends(get_db), curr
 
     jobs = [{"id": str(j["_id"]), "company": j["company"], "role": j["role"], "job_type": j.get("job_type", "A"), "required_skills": j.get("required_skills", []), "min_cgpa": j.get("min_cgpa"), "batch_years": j.get("batch_years"), "min_experience_months": j.get("min_experience_months", 0), "required_certifications": j.get("required_certifications")} for j in jobs_list]
 
-    result = await match_jobs(skills=payload.skills, resume_score=payload.resume_score, cgpa=payload.cgpa, graduation_year=payload.graduation_year, experience_months=payload.experience_months or 0, certifications=payload.certifications or [], jobs=jobs)
+    result = await match_jobs(skills=payload.skills, resume_score=payload.resume_score, resume_raw_text=payload.resume_raw_text or "", cgpa=payload.cgpa, graduation_year=payload.graduation_year, experience_months=payload.experience_months or 0, certifications=payload.certifications or [], jobs=jobs)
 
     for match in result["job_matches"]:
         await job_repo.upsert_match(str(student["_id"]), match["job_id"], {"match_score": match["match_score"], "score_breakdown": match["score_breakdown"], "missing_skills": match["missing_skills"], "placement_prediction": match["placement_prediction"]})
