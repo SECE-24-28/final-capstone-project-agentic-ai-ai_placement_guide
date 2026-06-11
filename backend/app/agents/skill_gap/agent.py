@@ -29,6 +29,8 @@ def _groq(prompt: str) -> str:
             if content:
                 return content
         except Exception as e:
+            if "AuthenticationError" in type(e).__name__ or "invalid_api_key" in str(e):
+                raise
             if attempt == 2:
                 raise
     return "{}"

@@ -171,7 +171,13 @@ export default function AnalysisPage() {
           <div className="space-y-4">
             {resumeAnalysis.projects.map((p: any, i: number) => (
               <div key={i} className="p-3 bg-gray-50 rounded-xl border border-gray-100">
-                <p className="font-semibold text-gray-900">{p.name}</p>
+                <div className="flex items-start justify-between gap-2">
+                  <p className="font-semibold text-gray-900">{p.name}</p>
+                  {p.url && (
+                    <a href={p.url} target="_blank" rel="noopener noreferrer"
+                      className="text-xs text-blue-600 hover:underline flex-shrink-0">GitHub ↗</a>
+                  )}
+                </div>
                 {p.description && <p className="text-xs text-gray-500 mt-1 line-clamp-2">{p.description}</p>}
                 {p.tech_stack?.length > 0 && (
                   <div className="flex flex-wrap gap-1 mt-2">
@@ -185,6 +191,31 @@ export default function AnalysisPage() {
           </div>
         </div>
       </div>
+
+      {/* Certifications */}
+      {resumeAnalysis.certifications?.length > 0 && (
+        <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
+          <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
+            <div className="w-7 h-7 bg-blue-100 rounded-lg flex items-center justify-center">
+              <Award className="h-3.5 w-3.5 text-blue-600" />
+            </div>
+            Certifications <span className="text-gray-400 text-sm font-normal">({resumeAnalysis.certifications.length})</span>
+          </h3>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+            {resumeAnalysis.certifications.map((c: any, i: number) => (
+              <div key={i} className="flex items-center gap-3 p-3 bg-blue-50 border border-blue-100 rounded-xl">
+                <div className="w-9 h-9 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <Award className="h-4 w-4 text-white" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-gray-900">{c.name}</p>
+                  <p className="text-xs text-gray-500">{c.issuer}{c.year ? ` · ${c.year}` : ""}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Feedback */}
       {resumeAnalysis.feedback?.length > 0 && (

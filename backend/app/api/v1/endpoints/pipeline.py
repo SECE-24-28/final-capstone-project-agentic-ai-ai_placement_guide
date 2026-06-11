@@ -67,7 +67,7 @@ async def full_analysis(
         if len(jobs_list) < 5:
             jobs_list = await job_repo.get_all_active()
 
-        jobs = [{"id": str(j["_id"]), "company": j["company"], "role": j["role"], "required_skills": j.get("required_skills", []), "min_cgpa": j.get("min_cgpa"), "batch_years": j.get("batch_years"), "min_experience_months": j.get("min_experience_months", 0), "required_certifications": j.get("required_certifications")} for j in jobs_list]
+        jobs = [{"id": str(j["_id"]), "company": j["company"], "role": j["role"], "job_type": j.get("job_type", "A"), "required_skills": j.get("required_skills", []), "min_cgpa": j.get("min_cgpa"), "batch_years": j.get("batch_years"), "min_experience_months": j.get("min_experience_months", 0), "required_certifications": j.get("required_certifications")} for j in jobs_list]
         cert_names = [c["name"] for c in analysis.get("certifications", [])]
         match_result = await match_jobs(skills=skill_names, resume_score=analysis.get("resume_score", 0), cgpa=analysis.get("cgpa"), graduation_year=analysis.get("graduation_year"), experience_months=sum(ex.get("duration_months") or 0 for ex in analysis.get("experience", [])), certifications=cert_names, jobs=jobs)
 
@@ -75,7 +75,10 @@ async def full_analysis(
         raise
     except Exception as e:
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"{type(e).__name__}: {str(e)}")
+        msg = str(e)
+        if "invalid_api_key" in msg or "AuthenticationError" in type(e).__name__:
+            raise HTTPException(status_code=500, detail="Invalid GROQ_API_KEY. Get a free key at https://console.groq.com and update backend/.env")
+        raise HTTPException(status_code=500, detail=f"{type(e).__name__}: {msg}")
 
     return FullAnalysisResponse(
         resume_analysis=ResumeAnalysisResponse(
@@ -96,7 +99,7 @@ async def full_analysis(
         skill_gap=SkillGapResponse(**gap_result),
         roadmap=RoadmapResponse(**roadmap_result),
         job_matches=JobMatchResponse(
-            job_matches=[JobMatchResult(job_id=m["job_id"], company=m["company"], role=m["role"], match_score=m["match_score"], score_breakdown=ScoreBreakdown(**m["score_breakdown"]), missing_skills=m["missing_skills"], placement_prediction=m["placement_prediction"]) for m in match_result["job_matches"]],
+            job_matches=[JobMatchResult(job_id=m["job_id"], company=m["company"], role=m["role"], job_type=m.get("job_type","A"), match_score=m["match_score"], score_breakdown=ScoreBreakdown(**m["score_breakdown"]), missing_skills=m["missing_skills"], placement_prediction=m["placement_prediction"]) for m in match_result["job_matches"]],
             company_rankings=match_result["company_rankings"],
             match_probability=match_result["match_probability"],
             placement_prediction=match_result["placement_prediction"],
