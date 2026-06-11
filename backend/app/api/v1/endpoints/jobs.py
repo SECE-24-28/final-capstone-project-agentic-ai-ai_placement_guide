@@ -1,5 +1,4 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sentence_transformers import SentenceTransformer
 
 from app.db.session import get_db
 from app.core.security import get_current_user
@@ -7,9 +6,9 @@ from app.agents.job_matching.agent import match_jobs
 from app.repositories.user_repo import StudentRepository
 from app.repositories.job_repo import JobRepository
 from app.schemas.schemas import JobMatchRequest, JobMatchResponse, JobMatchResult, ScoreBreakdown
+from app.core.embedder import embedder as _embedder
 
 router = APIRouter(prefix="/jobs", tags=["Job Matching"])
-_embedder = SentenceTransformer("all-MiniLM-L6-v2")
 
 
 @router.post("/match", response_model=JobMatchResponse)

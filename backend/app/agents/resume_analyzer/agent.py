@@ -11,12 +11,10 @@ import fitz  # PyMuPDF
 import spacy
 from groq import Groq
 from docx import Document
-from sentence_transformers import SentenceTransformer
-
 from app.core.config import settings
+from app.core.embedder import embedder as _embedder
 
 _client = Groq(api_key=settings.GROQ_API_KEY)
-_embedder = SentenceTransformer("all-MiniLM-L6-v2")
 
 try:
     _nlp = spacy.load("en_core_web_sm")

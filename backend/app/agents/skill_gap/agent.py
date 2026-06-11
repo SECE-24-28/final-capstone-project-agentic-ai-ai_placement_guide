@@ -7,29 +7,41 @@ import json
 from typing import List
 
 from groq import Groq
-from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
 
 from app.core.config import settings
+from app.core.embedder import embedder as _embedder
 
 _client = Groq(api_key=settings.GROQ_API_KEY)
-_embedder = SentenceTransformer("all-MiniLM-L6-v2")
 
 
 def _groq(prompt: str) -> str:
-    response = _client.chat.completions.create(
-        model=settings.GROQ_MODEL,
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.1,
-        max_tokens=2048,
-    )
-    return response.choices[0].message.content.strip()
+    for attempt in range(3):
+        try:
+            response = _client.chat.completions.create(
+                model=settings.GROQ_MODEL,
+                messages=[{"role": "system", "content": "You are a helpful assistant. Always respond with valid JSON only."}, {"role": "user", "content": prompt}],
+                temperature=0.1,
+                max_tokens=2048,
+            )
+            content = response.choices[0].message.content.strip()
+            if content:
+                return content
+        except Exception as e:
+            if attempt == 2:
+                raise
+    return "{}"
 
 
 def _parse_json(raw: str) -> dict:
-    raw = re.sub(r"^```json\s*", "", raw.strip())
+    raw = raw.strip()
+    raw = re.sub(r"^```json\s*", "", raw)
+    raw = re.sub(r"^```\s*", "", raw)
     raw = re.sub(r"\s*```$", "", raw)
+    match = re.search(r"\{.*\}", raw, re.DOTALL)
+    if match:
+        raw = match.group(0)
     return json.loads(raw)
 
 
