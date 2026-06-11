@@ -16,20 +16,33 @@ from app.core.embedder import embedder as _embedder
 _client = Groq(api_key=settings.GROQ_API_KEY)
 
 
+import time
+
+_last_call_time = 0.0
+_MIN_INTERVAL   = 2.0
+
 def _groq(prompt: str) -> str:
+    global _last_call_time
+    elapsed = time.time() - _last_call_time
+    if elapsed < _MIN_INTERVAL:
+        time.sleep(_MIN_INTERVAL - elapsed)
+    _last_call_time = time.time()
+
     for attempt in range(3):
         try:
             response = _client.chat.completions.create(
                 model=settings.GROQ_MODEL,
                 messages=[{"role": "system", "content": "You are a helpful assistant. Always respond with valid JSON only."}, {"role": "user", "content": prompt}],
                 temperature=0.1,
-                max_tokens=2048,
+                max_tokens=1024,
             )
             content = response.choices[0].message.content.strip()
             if content:
                 return content
         except Exception as e:
             if "AuthenticationError" in type(e).__name__ or "invalid_api_key" in str(e):
+                raise
+            if "RateLimitError" in type(e).__name__:
                 raise
             if attempt == 2:
                 raise

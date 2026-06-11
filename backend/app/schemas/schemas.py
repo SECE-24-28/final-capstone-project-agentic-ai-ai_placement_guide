@@ -83,6 +83,7 @@ class ResumeAnalysisResponse(BaseModel):
     graduation_year: Optional[int] = None
     resume_score: float = 0.0
     feedback: List[FeedbackSchema] = []
+    ats_breakdown: Optional[dict] = None
 
 
 # ─── Skill Gap ────────────────────────────────────────────────────────────────

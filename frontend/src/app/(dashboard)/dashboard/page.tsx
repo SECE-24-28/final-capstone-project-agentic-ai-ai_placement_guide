@@ -22,20 +22,34 @@ export default function DashboardPage() {
   const matchProb     = jobMatches?.match_probability ?? 0;
   const matchedCount  = skillGap?.matched_skills?.length ?? 0;
   const missingCount  = skillGap?.missing_skills?.length ?? 0;
-  const totalRequired = matchedCount + missingCount;
-  const skillCoverage = totalRequired > 0 ? Math.round((matchedCount / totalRequired) * 100) : 0;
 
-  // Readiness = ATS Score(40%) + Skill Coverage(40%) + Job Match(20%)
-  const readiness      = Math.round(resumeScore * 0.4 + skillCoverage * 0.4 + matchProb * 0.2);
+  // ATS sub-signals from ats_breakdown
+  const breakdown     = resumeAnalysis?.ats_breakdown;
+  const kwScore       = breakdown?.keyword_match?.score       ?? resumeScore;
+  const parseScore    = breakdown?.parseability?.score        ?? resumeScore;
+  const quantScore    = breakdown?.quantified_achievements?.score ?? resumeScore;
+  const sectionScore  = breakdown?.section_detection?.score   ?? resumeScore;
+  const formatScore   = breakdown?.format_compliance?.score   ?? resumeScore;
+
+  // New Readiness Formula:
+  // KeywordMatch(35%) + ParseScore(20%) + QuantifiedAchievements(20%) + SectionCompleteness(15%) + FormatScore(10%)
+  const readiness = resumeAnalysis
+    ? Math.round(kwScore * 0.35 + parseScore * 0.20 + quantScore * 0.20 + sectionScore * 0.15 + formatScore * 0.10)
+    : 0;
+
   const readinessColor = readiness >= 70 ? "#10b981" : readiness >= 50 ? "#f59e0b" : "#ef4444";
   const readinessLabel = readiness >= 80 ? "Highly Ready 🚀" : readiness >= 60 ? "Getting There 💪" : "Keep Preparing 📚";
 
   const breakdownData = resumeAnalysis ? [
-    { name: "ATS Score",      value: resumeScore,    weight: "40%", color: "#3b82f6", icon: FileText,   href: "/analysis" },
-    { name: "Skill Coverage", value: skillCoverage,  weight: "40%", color: "#10b981", icon: Target,     href: "/analysis" },
-    { name: "Job Match",      value: Math.round(matchProb), weight: "20%", color: "#8b5cf6", icon: Briefcase, href: "/jobs" },
+    { name: "Keyword Match",    value: Math.round(kwScore),      weight: "35%", color: "#3b82f6", icon: FileText,   href: "/analysis" },
+    { name: "Parseability",     value: Math.round(parseScore),   weight: "20%", color: "#10b981", icon: Target,     href: "/analysis" },
+    { name: "Achievements",     value: Math.round(quantScore),   weight: "20%", color: "#f59e0b", icon: Award,      href: "/analysis" },
+    { name: "Section Coverage", value: Math.round(sectionScore), weight: "15%", color: "#8b5cf6", icon: Briefcase,  href: "/analysis" },
+    { name: "Format Score",     value: Math.round(formatScore),  weight: "10%", color: "#14b8a6", icon: TrendingUp, href: "/analysis" },
   ] : [];
 
+  const totalRequired = matchedCount + (skillGap?.missing_skills?.length ?? 0);
+  const skillCoverage = totalRequired > 0 ? Math.round((matchedCount / totalRequired) * 100) : 0;
   const topJob = jobMatches?.job_matches?.[0];
 
   return (

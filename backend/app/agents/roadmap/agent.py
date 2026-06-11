@@ -16,7 +16,18 @@ from app.core.config import settings
 _client = Groq(api_key=settings.GROQ_API_KEY)
 
 
+import time
+
+_last_call_time = 0.0
+_MIN_INTERVAL   = 2.0
+
 def _groq(prompt: str) -> str:
+    global _last_call_time
+    elapsed = time.time() - _last_call_time
+    if elapsed < _MIN_INTERVAL:
+        time.sleep(_MIN_INTERVAL - elapsed)
+    _last_call_time = time.time()
+
     for attempt in range(3):
         try:
             response = _client.chat.completions.create(
@@ -33,6 +44,8 @@ def _groq(prompt: str) -> str:
                 return content
         except Exception as e:
             if "AuthenticationError" in type(e).__name__ or "invalid_api_key" in str(e):
+                raise
+            if "RateLimitError" in type(e).__name__:
                 raise
             if attempt == 2:
                 raise
