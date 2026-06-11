@@ -78,6 +78,11 @@ async def full_analysis(
         msg = str(e)
         if "invalid_api_key" in msg or "AuthenticationError" in type(e).__name__:
             raise HTTPException(status_code=500, detail="Invalid GROQ_API_KEY. Get a free key at https://console.groq.com and update backend/.env")
+        if "RateLimitError" in type(e).__name__ or "rate_limit_exceeded" in msg:
+            import re as _re
+            wait = _re.search(r"try again in (\S+)", msg)
+            wait_msg = f" Try again in {wait.group(1)}" if wait else " Please wait a few minutes."
+            raise HTTPException(status_code=429, detail=f"Groq API daily token limit reached.{wait_msg} (Free tier: 100K tokens/day)")
         raise HTTPException(status_code=500, detail=f"{type(e).__name__}: {msg}")
 
     return FullAnalysisResponse(

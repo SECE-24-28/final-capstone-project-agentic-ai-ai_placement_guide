@@ -77,76 +77,30 @@ def extract_text(file_bytes: bytes, filename: str) -> str:
     raise ValueError(f"Unsupported file format: {ext}")
 
 
-# ─── Groq Extraction ─────────────────────────────────────────────────────────
+# ─── Combined Extraction + ATS in ONE Groq call (saves ~3000 tokens) ─────────
 
-_EXTRACTION_PROMPT = """You are an expert resume parser. Extract ALL information from the resume text below.
-Return ONLY valid JSON, no markdown, no explanation.
+_COMBINED_PROMPT = """Parse this resume and score it. Return ONLY valid JSON.
 
-Resume Text:
+Resume:
 {resume_text}
-
-Return this exact JSON structure:
-{{
-  "candidate_name": "full name or null",
-  "email": "email or null",
-  "phone": "phone number or null",
-  "cgpa": numeric value or null,
-  "graduation_year": integer year or null,
-  "skills": [
-    {{"name": "skill name", "category": "Programming/Framework/Tool/Soft Skill/Database/Cloud", "proficiency": "Beginner/Intermediate/Advanced or null"}}
-  ],
-  "education": [
-    {{"degree": "B.Tech/B.E./M.Tech etc", "institution": "college name", "field_of_study": "CS/ECE etc", "start_year": int or null, "end_year": int or null, "cgpa": float or null}}
-  ],
-  "experience": [
-    {{"company": "company name", "role": "job title", "start_date": "Month Year", "end_date": "Month Year or Present", "description": "brief summary", "duration_months": int or null}}
-  ],
-  "projects": [
-    {{"name": "project name", "description": "what it does", "tech_stack": ["tech1","tech2"], "url": "github url or null"}}
-  ],
-  "certifications": [
-    {{"name": "cert name", "issuer": "Google/AWS/Coursera etc", "year": int or null}}
-  ]
-}}"""
-
-def parse_resume_with_groq(resume_text: str) -> dict:
-    prompt = _EXTRACTION_PROMPT.format(resume_text=resume_text[:6000])
-    return _parse_json(_groq(prompt))
-
-
-# ─── ATS Scoring ─────────────────────────────────────────────────────────────
-
-_ATS_PROMPT = """You are an ATS (Applicant Tracking System) expert. Analyze this resume and return ONLY valid JSON.
-
-Resume Text:
-{resume_text}
-
-Score the resume from 0-100 based on:
-1. Contact Information completeness (name, email, phone) - 10 points
-2. Skills section (quantity, relevance, technical depth) - 25 points
-3. Education section (degree, institution, CGPA) - 15 points
-4. Work Experience / Internships - 20 points
-5. Projects (quality, tech stack, impact) - 15 points
-6. Certifications - 10 points
-7. Formatting / Keywords / ATS Compatibility - 5 points
 
 Return:
-{{
-  "resume_score": integer 0-100,
-  "feedback": [
-    {{"category": "Contact Info", "message": "specific feedback", "severity": "info|warning|error"}},
-    {{"category": "Skills", "message": "specific feedback", "severity": "info|warning|error"}},
-    {{"category": "Experience", "message": "specific feedback", "severity": "info|warning|error"}},
-    {{"category": "Projects", "message": "specific feedback", "severity": "info|warning|error"}},
-    {{"category": "Education", "message": "specific feedback", "severity": "info|warning|error"}},
-    {{"category": "Certifications", "message": "specific feedback", "severity": "info|warning|error"}},
-    {{"category": "Overall", "message": "overall improvement suggestion", "severity": "info"}}
-  ]
-}}"""
+{{"candidate_name":"name or null","email":"email or null","phone":"phone or null","cgpa":null,"graduation_year":null,
+"skills":[{{"name":"skill","category":"Programming/Framework/Tool/Database/Cloud","proficiency":"Beginner/Intermediate/Advanced"}}],
+"education":[{{"degree":"degree","institution":"college","field_of_study":"field","start_year":null,"end_year":null,"cgpa":null}}],
+"experience":[{{"company":"company","role":"role","start_date":"date","end_date":"date","description":"summary","duration_months":null}}],
+"projects":[{{"name":"name","description":"desc","tech_stack":["tech"],"url":null}}],
+"certifications":[{{"name":"name","issuer":"issuer","year":null}}],
+"resume_score":0,
+"feedback":[{{"category":"Contact Info","message":"feedback","severity":"info"}},{{"category":"Skills","message":"feedback","severity":"info"}},{{"category":"Experience","message":"feedback","severity":"warning"}},{{"category":"Projects","message":"feedback","severity":"info"}},{{"category":"Overall","message":"suggestion","severity":"info"}}]}}
 
-def calculate_ats_score(resume_text: str) -> dict:
-    prompt = _ATS_PROMPT.format(resume_text=resume_text[:5000])
-    return _parse_json(_groq(prompt))
+resume_score 0-100: contact(10)+skills(25)+education(15)+experience(20)+projects(15)+certs(10)+format(5)"""
+
+
+def parse_and_score_resume(resume_text: str) -> dict:
+    """Single Groq call for both extraction + ATS scoring — saves ~3000 tokens."""
+    prompt = _COMBINED_PROMPT.format(resume_text=resume_text[:3000])
+    return _parse_json(_groq(prompt, max_tokens=2048))
 
 
 # ─── Embedding ────────────────────────────────────────────────────────────────
@@ -159,23 +113,22 @@ def get_resume_embedding(text: str) -> list:
 
 async def analyze_resume(file_bytes: bytes, filename: str) -> dict:
     raw_text = extract_text(file_bytes, filename)
-    parsed = parse_resume_with_groq(raw_text)
-    ats = calculate_ats_score(raw_text)
+    result   = parse_and_score_resume(raw_text)   # 1 call instead of 2
     embedding = get_resume_embedding(raw_text)
 
     return {
-        "raw_text": raw_text,
-        "candidate_name": parsed.get("candidate_name"),
-        "email": parsed.get("email"),
-        "phone": parsed.get("phone"),
-        "cgpa": parsed.get("cgpa"),
-        "graduation_year": parsed.get("graduation_year"),
-        "skills": parsed.get("skills", []),
-        "education": parsed.get("education", []),
-        "experience": parsed.get("experience", []),
-        "projects": parsed.get("projects", []),
-        "certifications": parsed.get("certifications", []),
-        "resume_score": ats.get("resume_score", 0),
-        "feedback": ats.get("feedback", []),
-        "embedding": embedding,
+        "raw_text":        raw_text,
+        "candidate_name":  result.get("candidate_name"),
+        "email":           result.get("email"),
+        "phone":           result.get("phone"),
+        "cgpa":            result.get("cgpa"),
+        "graduation_year": result.get("graduation_year"),
+        "skills":          result.get("skills", []),
+        "education":       result.get("education", []),
+        "experience":      result.get("experience", []),
+        "projects":        result.get("projects", []),
+        "certifications":  result.get("certifications", []),
+        "resume_score":    result.get("resume_score", 0),
+        "feedback":        result.get("feedback", []),
+        "embedding":       embedding,
     }

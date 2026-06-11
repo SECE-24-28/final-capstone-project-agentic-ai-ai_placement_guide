@@ -26,7 +26,7 @@ def _groq(prompt: str) -> str:
                     {"role": "user", "content": prompt},
                 ],
                 temperature=0.3,
-                max_tokens=4096,
+                max_tokens=2048,
             )
             content = response.choices[0].message.content.strip()
             if content:
@@ -318,37 +318,18 @@ def estimate_duration_weeks(missing_skills: List[str], hours_per_day: float, lev
 # NOTE: Groq only generates plans (daily/weekly/milestones/mock_interviews).
 # Resources are built from our curated DB — NOT from Groq (avoids hallucinated URLs).
 
-_ROADMAP_PROMPT = """You are an expert career coach and curriculum designer.
+_ROADMAP_PROMPT = """Create a learning roadmap. Return ONLY valid JSON.
 
-Create a detailed, actionable learning roadmap for a {level} student who wants to become a {target_role}.
+Student: {level} level, wants to be {target_role}
+Missing Skills: {missing_skills}
+Hours/day: {hours_per_day} | Duration: {duration_weeks} weeks
 
-Student Profile:
-- Missing Skills to Learn: {missing_skills}
-- Available Hours Per Day: {hours_per_day}
-- Total Duration: {duration_weeks} weeks
+{{"daily_plan":[{{"day":1,"topic":"skill","tasks":["task1","task2"],"duration_hours":{hours_per_day}}}],
+"weekly_plan":[{{"week":1,"focus":"skill","goals":["goal1","goal2"],"deliverable":"what to build","skills_covered":["skill1"]}}],
+"monthly_milestones":[{{"month":1,"milestone":"achievement","assessment":"how to test","skills_mastered":["skill1"]}}],
+"mock_interview_schedule":[{{"week":4,"type":"Technical Coding","topics":["skill1"],"duration_minutes":60,"platform":"LeetCode"}}]}}
 
-Return ONLY valid JSON with this exact structure (no resources field needed):
-{{
-  "daily_plan": [
-    {{"day": 1, "topic": "exact skill name from missing skills", "tasks": ["specific task 1", "specific task 2", "specific task 3"], "duration_hours": {hours_per_day}}},
-    {{"day": 2, "topic": "exact skill name", "tasks": ["task 1", "task 2", "task 3"], "duration_hours": {hours_per_day}}}
-  ],
-  "weekly_plan": [
-    {{"week": 1, "focus": "skill name", "goals": ["measurable goal 1", "measurable goal 2", "measurable goal 3"], "deliverable": "specific project or task to complete", "skills_covered": ["skill1", "skill2"]}}
-  ],
-  "monthly_milestones": [
-    {{"month": 1, "milestone": "specific achievement", "assessment": "how to test: build X or solve Y problems", "skills_mastered": ["skill1", "skill2"]}}
-  ],
-  "mock_interview_schedule": [
-    {{"week": 4, "type": "Technical Coding", "topics": ["skill1", "skill2"], "duration_minutes": 60, "platform": "LeetCode"}}
-  ]
-}}
-
-Rules:
-- daily_plan: first 14 days only, tasks must be specific and actionable
-- weekly_plan: all {duration_weeks} weeks
-- mock_interview_schedule: at least 2 sessions
-- Return ONLY the JSON, no other text"""
+Rules: daily_plan=14 days only, weekly_plan=all {duration_weeks} weeks, tasks must be specific."""
 
 
 def generate_plan_with_groq(
@@ -361,7 +342,7 @@ def generate_plan_with_groq(
     prompt = _ROADMAP_PROMPT.format(
         level=student_level,
         target_role=target_role,
-        missing_skills=", ".join(missing_skills),
+        missing_skills=", ".join(missing_skills[:10]),  # cap at 10 skills
         hours_per_day=available_hours_per_day,
         duration_weeks=duration_weeks,
     )
