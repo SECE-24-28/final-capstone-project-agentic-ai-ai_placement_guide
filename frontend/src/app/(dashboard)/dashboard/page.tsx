@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { RadialBarChart, RadialBar, PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
-import { FileText, Target, Briefcase, Award, TrendingUp, ArrowRight, Zap, BookOpen, CheckCircle, XCircle, Clock } from "lucide-react";
+import { FileText, Target, Briefcase, Award, TrendingUp, ArrowRight, Zap, BookOpen, CheckCircle, XCircle, Clock, Info, ChevronDown, ChevronUp } from "lucide-react";
 import { studentApi } from "@/lib/api";
 import { useAnalysisStore } from "@/lib/store";
 import Link from "next/link";
@@ -10,6 +10,7 @@ const COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"
 
 export default function DashboardPage() {
   const [profile, setProfile] = useState<any>(null);
+  const [showScoreInfo, setShowScoreInfo] = useState(false);
   const { resumeAnalysis, skillGap, jobMatches, roadmap } = useAnalysisStore();
 
   useEffect(() => {
@@ -357,6 +358,99 @@ export default function DashboardPage() {
           </Link>
         </div>
       ) : null}
+
+      {/* How Scores Are Calculated */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <button
+          onClick={() => setShowScoreInfo((v) => !v)}
+          className="w-full flex items-center justify-between px-6 py-4 text-left hover:bg-gray-50 transition-colors">
+          <span className="font-bold text-gray-900 flex items-center gap-2">
+            <Info className="h-4 w-4 text-blue-500" /> How are scores calculated?
+          </span>
+          {showScoreInfo
+            ? <ChevronUp className="h-4 w-4 text-gray-400" />
+            : <ChevronDown className="h-4 w-4 text-gray-400" />}
+        </button>
+        {showScoreInfo && (
+          <div className="px-6 pb-6 space-y-5 border-t border-gray-50">
+            {/* ATS Score */}
+            <div className="pt-4">
+              <p className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                <FileText className="h-4 w-4 text-blue-600" /> ATS Score (0–100)
+              </p>
+              <p className="text-sm text-gray-500 mb-3">Groq AI analyzes your resume text and scores it on 7 criteria:</p>
+              <div className="space-y-2">
+                {[
+                  { label: "Contact Info",              pts: 10, desc: "Name, email, phone present" },
+                  { label: "Skills Section",            pts: 25, desc: "Quantity, relevance, technical depth" },
+                  { label: "Education",                 pts: 15, desc: "Degree, institution, CGPA" },
+                  { label: "Work Experience",           pts: 20, desc: "Internships, roles, descriptions" },
+                  { label: "Projects",                  pts: 15, desc: "Quality, tech stack, impact" },
+                  { label: "Certifications",            pts: 10, desc: "Relevant certifications" },
+                  { label: "Formatting & Keywords",     pts: 5,  desc: "ATS compatibility, keywords" },
+                ].map((c) => (
+                  <div key={c.label} className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <span className="text-xs font-black text-blue-600">{c.pts}</span>
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-gray-800">{c.label}</span>
+                        <span className="text-xs text-gray-400">{c.pts} pts</span>
+                      </div>
+                      <div className="w-full bg-gray-100 rounded-full h-1 mt-1">
+                        <div className="h-1 rounded-full bg-blue-400" style={{ width: `${c.pts}%` }} />
+                      </div>
+                      <p className="text-xs text-gray-400 mt-0.5">{c.desc}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Readiness Score */}
+            <div className="pt-2 border-t border-gray-100">
+              <p className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                <TrendingUp className="h-4 w-4 text-emerald-600" /> Placement Readiness Score
+              </p>
+              <p className="text-sm text-gray-500 mb-3">Weighted combination of 3 signals:</p>
+              <div className="space-y-3">
+                {[
+                  { label: "ATS Score",      weight: 40, color: "bg-blue-500",   desc: "How strong your resume is" },
+                  { label: "Skill Coverage", weight: 40, color: "bg-emerald-500", desc: "matched skills ÷ total required skills × 100" },
+                  { label: "Job Match",      weight: 20, color: "bg-violet-500",  desc: "Top job match score from Agent 4" },
+                ].map((s) => (
+                  <div key={s.label} className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: s.color.replace("bg-", "").includes("blue") ? "#eff6ff" : s.color.includes("emerald") ? "#ecfdf5" : "#f5f3ff" }}>
+                      <span className="text-xs font-black text-gray-700">{s.weight}%</span>
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-gray-800">{s.label}</span>
+                        <span className="text-xs font-bold text-gray-600">× {s.weight / 100}</span>
+                      </div>
+                      <div className="w-full bg-gray-100 rounded-full h-1.5 mt-1">
+                        <div className={`h-1.5 rounded-full ${s.color}`} style={{ width: `${s.weight}%` }} />
+                      </div>
+                      <p className="text-xs text-gray-400 mt-0.5">{s.desc}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-3 p-3 bg-gray-50 rounded-xl border border-gray-100">
+                <p className="text-xs font-mono text-gray-600">
+                  Readiness = (ATS × 0.4) + (SkillCoverage × 0.4) + (JobMatch × 0.2)
+                </p>
+                {resumeAnalysis && (
+                  <p className="text-xs font-mono text-blue-600 mt-1">
+                    = ({resumeScore} × 0.4) + ({skillCoverage} × 0.4) + ({Math.round(matchProb)} × 0.2) = <strong>{readiness}</strong>
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
