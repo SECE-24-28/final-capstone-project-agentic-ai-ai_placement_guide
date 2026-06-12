@@ -124,16 +124,21 @@ final-capstone-project-agentic-ai-ai_placement_guide/
 ├── frontend/
 │   └── src/
 │       ├── app/
+│       │   ├── page.tsx                    ← Landing page → redirects to /login
 │       │   ├── (auth)/login/page.tsx
 │       │   ├── (auth)/register/page.tsx
 │       │   └── (dashboard)/
-│       │       ├── layout.tsx              ← Sidebar nav
-│       │       ├── dashboard/page.tsx      ← Stats + charts
+│       │       ├── layout.tsx              ← Sidebar nav (logo click → /dashboard)
+│       │       ├── dashboard/page.tsx      ← Stats + charts + readiness banner
 │       │       ├── upload/page.tsx         ← Drag-drop + agent progress
-│       │       ├── analysis/page.tsx       ← Resume analysis results
+│       │       ├── analysis/page.tsx       ← Resume analysis + ATS tips panel
+│       │       ├── history/page.tsx        ← Resume version history
 │       │       ├── roadmap/page.tsx        ← Tabbed roadmap view
 │       │       ├── jobs/page.tsx           ← Job matches + rankings
 │       │       └── profile/page.tsx        ← Student profile
+│       ├── components/
+│       │   ├── DashboardCharts.tsx         ← Recharts (SSR-disabled) for dashboard
+│       │   └── AnalysisCharts.tsx          ← Recharts (SSR-disabled) for analysis
 │       └── lib/
 │           ├── api.ts                      ← Axios API client
 │           ├── store.ts                    ← Zustand state
@@ -161,7 +166,7 @@ final-capstone-project-agentic-ai-ai_placement_guide/
 | Database | MongoDB + Motor (async) |
 | Auth | JWT (python-jose) + bcrypt |
 | Frontend | Next.js 14 + TypeScript + Tailwind CSS |
-| Charts | Recharts |
+| Charts | Recharts (dynamic import, ssr:false — fixes hydration mismatch) |
 | State | Zustand |
 | Package Manager | uv (Astral) |
 
@@ -243,6 +248,17 @@ MAX_FILE_SIZE_MB=10
 | Member 1 | Agent 1 (Resume Analyzer) + Database + Auth API |
 | Member 2 | Agent 2 (Skill Gap) + Agent 3 (Roadmap) + Pipeline |
 | Member 3 | Agent 4 (Job Matching) + Frontend + Deployment |
+
+---
+
+## 🖥️ Frontend Features
+
+- **Landing page** — auto-redirects unauthenticated users to `/login`, authenticated to `/dashboard`
+- **Sidebar logo** — clicking the AI Placement logo navigates back to `/dashboard`
+- **Readiness banner badges** — target role and student level badges only appear after a resume is uploaded (not shown at 0/100)
+- **ATS Improvement Tips panel** — shown in Analysis page after upload; lists actionable fixes with category tags (KEYWORDS / IMPACT / STYLE / STRUCTURE / FORMAT), estimated point gains per fix, and FIX → buttons
+- **Resume Version Comparison** — side-by-side diff of two resume versions with ATS score delta, added/removed items per section
+- **Recharts hydration fix** — all chart components dynamically imported with `ssr: false` to prevent `recharts1-clip` vs `recharts2-clip` ID mismatch on page reload
 
 ---
 
