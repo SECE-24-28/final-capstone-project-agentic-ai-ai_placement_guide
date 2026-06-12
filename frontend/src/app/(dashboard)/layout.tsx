@@ -23,9 +23,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <div className="min-h-screen flex bg-gray-50">
       {/* Sidebar */}
       <aside className="w-64 bg-white border-r border-gray-100 flex flex-col fixed h-full shadow-sm z-10">
-        {/* Logo */}
+        {/* Logo — click navigates to dashboard */}
         <div className="p-5 border-b border-gray-100">
-          <div className="flex items-center gap-3">
+          <Link href="/dashboard" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
             <div className="w-9 h-9 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-md shadow-blue-200">
               <Brain className="h-5 w-5 text-white" />
             </div>
@@ -33,7 +33,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <p className="font-bold text-gray-900 text-sm leading-tight">AI Placement</p>
               <p className="text-xs text-gray-400">Preparation Agent</p>
             </div>
-          </div>
+          </Link>
         </div>
 
         {/* Nav */}

@@ -81,12 +81,13 @@ export default function DashboardPage() {
             </div>
             <p className="text-blue-100 text-lg font-medium">{readinessLabel}</p>
             <div className="flex flex-wrap gap-2 pt-1">
-              {profile?.target_role && (
+              {/* Only show these badges after resume has been uploaded */}
+              {resumeAnalysis && profile?.target_role && (
                 <span className="bg-white/10 border border-white/20 text-white text-xs px-3 py-1.5 rounded-full">
                   🎯 {profile.target_role}
                 </span>
               )}
-              {profile?.student_level && (
+              {resumeAnalysis && profile?.student_level && (
                 <span className="bg-white/10 border border-white/20 text-white text-xs px-3 py-1.5 rounded-full capitalize">
                   📊 {profile.student_level}
                 </span>

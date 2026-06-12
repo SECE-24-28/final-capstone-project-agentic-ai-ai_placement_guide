@@ -7,7 +7,7 @@ import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 import {
   FileText, Briefcase, GraduationCap, FolderOpen, Award, AlertCircle,
   ArrowRight, Zap, CheckCircle, XCircle, TrendingUp, TrendingDown,
-  Minus, GitCompare, Upload, Equal
+  Minus, GitCompare, Upload, Equal, Lightbulb
 } from "lucide-react";
 
 const COLORS = ["#3b82f6","#10b981","#f59e0b","#ef4444","#8b5cf6","#ec4899","#14b8a6","#f97316"];
@@ -480,6 +480,162 @@ export default function AnalysisPage() {
           </div>
         </div>
       )}
+
+      {/* ── ATS Score Improvement Tips (ResumeWorded style) ─────────────────── */}
+      {resumeAnalysis && (() => {
+        const breakdown = resumeAnalysis.ats_breakdown;
+        if (!breakdown) return null;
+
+        // Build actionable fix items from ats_breakdown signals
+        const tips: { title: string; desc: string; tag: string; tagColor: string; severity: "error" | "warning" | "ok"; points: number }[] = [];
+
+        const kw = breakdown.keyword_match;
+        if (kw?.score < 80) tips.push({
+          title: "Improve keyword match",
+          desc: kw.missing_keywords?.length
+            ? `Add these missing keywords: ${kw.missing_keywords.slice(0, 5).join(", ")}`
+            : "Add more role-specific keywords from the job description",
+          tag: "KEYWORDS", tagColor: "bg-blue-100 text-blue-700",
+          severity: kw.score < 40 ? "error" : "warning",
+          points: Math.round((80 - kw.score) * 0.25),
+        });
+
+        const qa = breakdown.quantified_achievements;
+        if (qa?.score < 80) tips.push({
+          title: "Quantify your impact",
+          desc: `Add numbers/metrics (%, $, counts) to your experience bullets. Currently ${qa.metrics_count ?? 0} metrics found — aim for 6+`,
+          tag: "IMPACT", tagColor: "bg-orange-100 text-orange-700",
+          severity: qa.score < 40 ? "error" : "warning",
+          points: Math.round((80 - qa.score) * 0.20),
+        });
+
+        const av = breakdown.action_verbs;
+        if (av?.score < 80) tips.push({
+          title: "Use stronger action verbs",
+          desc: `Start bullets with: Led, Built, Reduced, Increased, Deployed, Architected. Found ${av.verb_count ?? 0} strong verbs — aim for 8+`,
+          tag: "STYLE", tagColor: "bg-violet-100 text-violet-700",
+          severity: av.score < 40 ? "error" : "warning",
+          points: Math.round((80 - av.score) * 0.10),
+        });
+
+        const sec = breakdown.section_detection;
+        if (sec?.sections_missing?.length > 0) tips.push({
+          title: "Add missing sections",
+          desc: `Your resume is missing: ${sec.sections_missing.join(", ")}`,
+          tag: "STRUCTURE", tagColor: "bg-emerald-100 text-emerald-700",
+          severity: "warning",
+          points: Math.round((sec.sections_missing.length / 6) * 15),
+        });
+
+        const fmt = breakdown.format_compliance;
+        if (fmt?.format_issues?.length > 0) tips.push({
+          title: "Fix formatting issues",
+          desc: fmt.format_issues.join(". "),
+          tag: "FORMAT", tagColor: "bg-gray-100 text-gray-700",
+          severity: "warning",
+          points: Math.round((100 - (fmt.score ?? 100)) * 0.05),
+        });
+
+        const rel = breakdown.relevance;
+        if (rel?.cosine_similarity < 0.5) tips.push({
+          title: "Improve role relevance",
+          desc: `Your resume has low semantic relevance to the target role (${Math.round((rel.cosine_similarity ?? 0) * 100)}% match). Tailor your summary and skills section.`,
+          tag: "RELEVANCE", tagColor: "bg-indigo-100 text-indigo-700",
+          severity: rel.cosine_similarity < 0.3 ? "error" : "warning",
+          points: Math.round((0.5 - rel.cosine_similarity) * 100 * 0.10),
+        });
+
+        if (tips.length === 0) return null;
+
+        const totalPoints = tips.reduce((s, t) => s + t.points, 0);
+
+        return (
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-indigo-50 to-blue-50 px-6 py-5 border-b border-gray-100">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-bold text-gray-900 flex items-center gap-2 text-lg">
+                    <Lightbulb className="h-5 w-5 text-indigo-500" />
+                    Steps to increase your ATS score
+                  </h3>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Here are the checks bringing your score down. Fix them to gain up to
+                    <span className="font-bold text-indigo-600 ml-1">+{totalPoints} points</span>.
+                  </p>
+                </div>
+                <div className="text-right">
+                  <div className="text-3xl font-black text-gray-700">{resumeAnalysis.resume_score}</div>
+                  <div className="text-xs text-gray-400">Current Score</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Tips list */}
+            <div className="divide-y divide-gray-50">
+              {tips.map((tip, i) => (
+                <div key={i} className={`flex items-center gap-4 p-5 ${
+                  tip.severity === "error" ? "border-l-4 border-red-400" : "border-l-4 border-amber-400"
+                }`}>
+                  {/* Icon */}
+                  <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
+                    tip.severity === "error" ? "bg-red-100" : "bg-amber-100"
+                  }`}>
+                    <XCircle className={`h-4 w-4 ${tip.severity === "error" ? "text-red-500" : "text-amber-500"}`} />
+                  </div>
+
+                  {/* Content */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-semibold text-gray-900">{tip.title}</span>
+                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${tip.tagColor}`}>{tip.tag}</span>
+                    </div>
+                    <p className="text-sm text-gray-500 mt-0.5">{tip.desc}</p>
+                  </div>
+
+                  {/* Points gain */}
+                  <div className="flex-shrink-0 flex items-center gap-3">
+                    {tip.points > 0 && (
+                      <span className="text-xs font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-1 rounded-full">
+                        +{tip.points} pts
+                      </span>
+                    )}
+                    <Link href="/upload"
+                      className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-3 py-2 rounded-lg transition-all shadow-sm">
+                      FIX <ArrowRight className="h-3 w-3" />
+                    </Link>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Completed signals */}
+            {(() => {
+              const done: string[] = [];
+              if ((breakdown.keyword_match?.score ?? 0) >= 80) done.push("Keyword Match");
+              if ((breakdown.quantified_achievements?.score ?? 0) >= 80) done.push("Quantified Achievements");
+              if ((breakdown.action_verbs?.score ?? 0) >= 80) done.push("Action Verbs");
+              if ((breakdown.section_detection?.sections_missing?.length ?? 1) === 0) done.push("All Sections Present");
+              if ((breakdown.format_compliance?.score ?? 0) >= 80) done.push("Format Compliance");
+              if (done.length === 0) return null;
+              return (
+                <div className="px-6 py-4 bg-emerald-50 border-t border-emerald-100">
+                  <p className="text-xs font-semibold text-emerald-700 mb-2 flex items-center gap-1">
+                    <CheckCircle className="h-3.5 w-3.5" /> Completed checks
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {done.map((d) => (
+                      <span key={d} className="flex items-center gap-1 text-xs bg-white border border-emerald-200 text-emerald-700 px-2.5 py-1 rounded-full font-medium">
+                        <CheckCircle className="h-3 w-3" /> {d}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        );
+      })()}
 
       {/* ── Smart Feedback (ResumeWorded style) ─────────────────────────── */}
       {resumeAnalysis.smart_feedback && (
