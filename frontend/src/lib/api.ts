@@ -40,7 +40,12 @@ export const resumeApi = {
     form.append("resume", file);
     return api.post("/api/v1/resume/analyze", form);
   },
-  getLatest: () => api.get("/api/v1/resume/latest"),
+  getLatest:   () => api.get("/api/v1/resume/latest"),
+  getHistory:  () => api.get("/api/v1/resume/history"),
+  compare:     () => api.get("/api/v1/resume/compare"),
+  getStrength: () => api.get("/api/v1/resume/strength"),
+  tailor: (job_description: string) =>
+    api.post("/api/v1/resume/tailor", { job_description }),
 };
 
 // ─── Skill Gap ────────────────────────────────────────────────────────────────
@@ -58,7 +63,11 @@ export const roadmapApi = {
 
 // ─── Jobs ─────────────────────────────────────────────────────────────────────
 export const jobsApi = {
-  match: (data: object) => api.post("/api/v1/jobs/match", data),
+  match:            (data: object) => api.post("/api/v1/jobs/match", data),
+  getLive:          (role: string, location = "India") => api.get(`/api/v1/jobs/live?role=${encodeURIComponent(role)}&location=${encodeURIComponent(location)}`),
+  getCompanyRankings: () => api.get("/api/v1/jobs/company-rankings"),
+  getSkillTrends:   () => api.get("/api/v1/jobs/skill-trends"),
+  explain:          (data: object) => api.post("/api/v1/jobs/explain", data),
 };
 
 // ─── Full Pipeline ────────────────────────────────────────────────────────────

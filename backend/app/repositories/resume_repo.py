@@ -15,3 +15,9 @@ class ResumeRepository:
 
     async def get_active_resume(self, student_id: str):
         return await self.db.resumes.find_one({"student_id": str(student_id), "is_active": True})
+
+    async def get_all_resumes(self, student_id: str) -> list:
+        """Return all resume versions for a student, newest first."""
+        return await self.db.resumes.find(
+            {"student_id": str(student_id)}
+        ).sort("created_at", -1).to_list(None)

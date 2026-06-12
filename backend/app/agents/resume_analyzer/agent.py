@@ -145,9 +145,18 @@ def _extract_keywords(text: str) -> set:
 
 def keyword_match_score(resume_text: str, jd_text: str = "") -> tuple[float, dict]:
     """Signal 1: Resume keywords vs job description keywords (25 pts)."""
-    if not jd_text.strip():
-        # Fallback: treat target_role string as minimal JD
-        jd_text = jd_text or resume_text  # no-op: gives 100 — caller should pass role
+    # If jd_text is just a short role name, expand it using role descriptions
+    if len(jd_text.split()) <= 4:
+        role_lower = jd_text.lower().strip()
+        expanded = jd_text
+        for key, desc in _ROLE_DESCRIPTIONS.items():
+            key_words = set(key.split())
+            role_words = set(role_lower.split())
+            if key_words & role_words or key in role_lower:
+                expanded = f"{jd_text} {desc}"
+                break
+        jd_text = expanded
+
     jd_keywords = _extract_keywords(jd_text)
     resume_keywords = _extract_keywords(resume_text)
     if not jd_keywords:
@@ -278,37 +287,48 @@ def action_verb_score(resume_text: str) -> tuple[float, dict]:
 # ─── ATS Signal 6: Relevance Score (10 pts) ──────────────────────────────────
 
 _ROLE_DESCRIPTIONS = {
-    "software engineer": "python java algorithms data structures system design sql git agile oop rest api microservices",
-    "full stack developer": "react node javascript html css sql mongodb rest api git docker typescript",
-    "data scientist": "python machine learning pandas numpy scikit-learn sql statistics deep learning tensorflow",
-    "devops engineer": "docker kubernetes aws ci/cd linux terraform ansible jenkins git monitoring",
-    "ml engineer": "python tensorflow pytorch machine learning deep learning nlp model deployment mlops",
-    "frontend developer": "react javascript typescript html css tailwind git responsive design ux",
-    "backend developer": "python java node rest api sql postgresql mongodb microservices docker",
-    "android developer": "kotlin java android sdk jetpack compose retrofit sqlite",
-    "data analyst": "sql python pandas excel power bi tableau statistics data visualization",
+    "software engineer": "python java algorithms data structures system design sql git agile oop rest api microservices linux debugging testing",
+    "full stack developer": "react node javascript html css sql mongodb rest api git docker typescript express frontend backend",
+    "data scientist": "python machine learning pandas numpy scikit-learn sql statistics deep learning tensorflow data analysis visualization",
+    "devops engineer": "docker kubernetes aws ci/cd linux terraform ansible jenkins git monitoring prometheus grafana",
+    "ml engineer": "python tensorflow pytorch machine learning deep learning nlp model deployment mlops feature engineering",
+    "frontend developer": "react javascript typescript html css tailwind git responsive design ux figma component ui",
+    "backend developer": "python java node rest api sql postgresql mongodb microservices docker redis caching authentication",
+    "android developer": "kotlin java android sdk jetpack compose retrofit sqlite room mvvm coroutines gradle play store mobile app",
+    "ios developer": "swift objective-c xcode uikit swiftui cocoapods mvvm core data app store mobile apple",
+    "mobile developer": "kotlin swift java android ios react native flutter mobile app ui ux retrofit sqlite jetpack compose xcode",
+    "data analyst": "sql python pandas excel power bi tableau statistics data visualization reporting dashboard",
+    "cloud engineer": "aws azure gcp terraform docker kubernetes iam s3 ec2 lambda serverless devops",
+    "cybersecurity": "network security penetration testing encryption firewall linux python vulnerability assessment",
+    "embedded systems": "c c++ microcontroller arduino raspberry pi rtos embedded linux uart spi i2c firmware",
 }
 
 def relevance_score(resume_text: str, target_role: str) -> tuple[float, dict]:
     """Signal 6: Cosine similarity between resume and target role description (10 pts)."""
-    role_lower = target_role.lower()
+    role_lower = target_role.lower().strip()
 
-    # Find best matching role description
+    # Find best matching role description — check all words in role name
     role_desc = None
+    best_match = ""
     for key, desc in _ROLE_DESCRIPTIONS.items():
-        if key in role_lower or any(w in role_lower for w in key.split()):
-            role_desc = desc
-            break
+        key_words = set(key.split())
+        role_words = set(role_lower.split())
+        # Match if any word overlaps OR key is substring of role
+        if key_words & role_words or key in role_lower or any(w in key for w in role_words):
+            if len(key_words & role_words) > len(set(best_match.split()) & role_words):
+                role_desc = desc
+                best_match = key
 
     if not role_desc:
-        role_desc = target_role  # fallback: use role name itself
+        # Fallback: use target role string + generic tech keywords
+        role_desc = f"{target_role} programming software development algorithms data structures git"
 
     resume_emb = _embedder.encode([resume_text[:1000]])
     role_emb   = _embedder.encode([role_desc])
     similarity = float(cosine_similarity(resume_emb, role_emb)[0][0])
     score      = round(min(similarity * 150, 100.0), 1)  # scale up cosine (0.5~0.7 typical)
 
-    return score, {"cosine_similarity": round(similarity, 3), "matched_role": role_lower}
+    return score, {"cosine_similarity": round(similarity, 3), "matched_role": best_match or role_lower}
 
 
 # ─── ATS Signal 7: Format Compliance (5 pts) ─────────────────────────────────

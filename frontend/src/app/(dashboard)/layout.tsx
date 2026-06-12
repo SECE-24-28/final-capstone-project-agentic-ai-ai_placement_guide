@@ -1,16 +1,17 @@
 "use client";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Brain, LayoutDashboard, Upload, Target, Map, Briefcase, User, LogOut, ChevronRight } from "lucide-react";
+import { Brain, LayoutDashboard, Upload, Target, Map, Briefcase, User, LogOut, ChevronRight, History } from "lucide-react";
 import { useAuthStore } from "@/lib/store";
 
 const navItems = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, color: "text-blue-600 bg-blue-50" },
-  { href: "/upload", label: "Resume Upload", icon: Upload, color: "text-violet-600 bg-violet-50" },
-  { href: "/analysis", label: "Analysis", icon: Target, color: "text-emerald-600 bg-emerald-50" },
-  { href: "/roadmap", label: "Roadmap", icon: Map, color: "text-amber-600 bg-amber-50" },
-  { href: "/jobs", label: "Job Matches", icon: Briefcase, color: "text-rose-600 bg-rose-50" },
-  { href: "/profile", label: "Profile", icon: User, color: "text-gray-600 bg-gray-100" },
+  { href: "/dashboard", label: "Dashboard",      icon: LayoutDashboard, color: "text-blue-600 bg-blue-50" },
+  { href: "/upload",    label: "Resume Upload",   icon: Upload,          color: "text-violet-600 bg-violet-50" },
+  { href: "/analysis", label: "Analysis",         icon: Target,          color: "text-emerald-600 bg-emerald-50" },
+  { href: "/history",  label: "Resume History",   icon: History,         color: "text-cyan-600 bg-cyan-50" },
+  { href: "/roadmap",  label: "Roadmap",           icon: Map,             color: "text-amber-600 bg-amber-50" },
+  { href: "/jobs",     label: "Job Matches",       icon: Briefcase,       color: "text-rose-600 bg-rose-50" },
+  { href: "/profile",  label: "Profile",           icon: User,            color: "text-gray-600 bg-gray-100" },
 ];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {

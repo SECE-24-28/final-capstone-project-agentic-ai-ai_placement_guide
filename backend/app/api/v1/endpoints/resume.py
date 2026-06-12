@@ -108,10 +108,7 @@ async def compare_resumes(db=Depends(get_db), current_user=Depends(get_current_u
     if not student:
         raise HTTPException(status_code=404, detail="Student not found")
 
-    # Fetch last 2 resumes sorted newest first
-    resumes = await db.resumes.find(
-        {"student_id": str(student["_id"])}
-    ).sort("created_at", -1).limit(2).to_list(2)
+    resumes = await ResumeRepository(db).get_all_resumes(str(student["_id"]))
 
     if len(resumes) < 2:
         raise HTTPException(status_code=404, detail="Need at least 2 resume uploads to compare")
@@ -121,6 +118,34 @@ async def compare_resumes(db=Depends(get_db), current_user=Depends(get_current_u
     if "error" in result:
         raise HTTPException(status_code=500, detail=result["error"])
     return result
+
+
+# ── Resume History ────────────────────────────────────────────────────────────
+@router.get("/history")
+async def get_resume_history(db=Depends(get_db), current_user=Depends(get_current_user)):
+    """Return all resume versions for this student, newest first."""
+    student = await StudentRepository(db).get_by_user_id(str(current_user["_id"]))
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+
+    resumes = await ResumeRepository(db).get_all_resumes(str(student["_id"]))
+    if not resumes:
+        raise HTTPException(status_code=404, detail="No resume history found")
+
+    return {
+        "total": len(resumes),
+        "history": [
+            {
+                "resume_id":    str(r["_id"]),
+                "file_name":    r.get("file_name", "resume"),
+                "resume_score": r.get("resume_score", 0),
+                "is_active":    r.get("is_active", False),
+                "uploaded_at":  r.get("created_at").isoformat() if r.get("created_at") else None,
+                "skills_count": len(r.get("skills", [])),
+            }
+            for r in resumes
+        ],
+    }
 
 
 # ── Feature 2: Resume Strength Meter ─────────────────────────────────────────
