@@ -183,82 +183,52 @@ export default function AnalysisPage() {
           <span className="font-bold text-gray-900">Resume Version Comparison</span>
         </div>
 
-        {/* First upload — no previous version */}
+        {/* First upload */}
         {firstUpload && !compare && (
           <div className="p-8 flex flex-col items-center text-center gap-3">
             <div className="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center">
               <Upload className="h-7 w-7 text-blue-400" />
             </div>
             <p className="font-semibold text-gray-700">This is your first resume upload</p>
-            <p className="text-sm text-gray-400 max-w-xs">
-              Upload an updated resume again to automatically compare what changed, what improved, and your ATS score difference.
-            </p>
-            <Link href="/upload"
-              className="mt-1 flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-all">
+            <p className="text-sm text-gray-400 max-w-xs">Upload an updated resume to compare versions side by side.</p>
+            <Link href="/upload" className="mt-1 flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-all">
               <Upload className="h-4 w-4" /> Upload New Version
             </Link>
           </div>
         )}
 
-        {/* No changes detected */}
-        {compare && noChanges && (
-          <div className="p-6">
-            {/* ATS scores */}
-            <div className="flex items-center gap-4 mb-5">
-              <div className="flex-1 text-center p-4 bg-gray-50 rounded-2xl">
-                <p className="text-xs text-gray-400 mb-1">Previous ATS Score</p>
-                <p className="text-4xl font-black text-gray-400">{compare.ats_v1}</p>
-              </div>
-              <div className="flex flex-col items-center gap-1">
-                <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gray-100 text-gray-500 font-bold">
-                  <Equal className="h-5 w-5" /> No change
-                </div>
-                <span className="text-xs text-gray-400">0 pts difference</span>
-              </div>
-              <div className="flex-1 text-center p-4 bg-blue-50 rounded-2xl">
-                <p className="text-xs text-gray-400 mb-1">Latest ATS Score</p>
-                <p className="text-4xl font-black text-blue-600">{compare.ats_v2}</p>
-              </div>
-            </div>
-            <div className="text-center py-4 text-gray-400 text-sm">
-              ✅ Both resume versions are identical — no sections were added or removed.
-            </div>
-          </div>
-        )}
-
-        {/* Changes detected */}
-        {compare && !noChanges && (
+        {compare && (
           <div className="p-6 space-y-5">
 
-            {/* ATS Score diff + % improvement */}
-            <div className="flex items-stretch gap-4">
-              <div className="flex-1 text-center p-4 bg-gray-50 rounded-2xl">
-                <p className="text-xs text-gray-400 mb-1">Previous ATS Score</p>
+            {/* ATS Score Banner */}
+            <div className="grid grid-cols-3 items-center gap-3">
+              <div className="text-center p-4 bg-gray-50 border border-gray-200 rounded-2xl">
+                <p className="text-xs text-gray-400 mb-1 font-medium">Previous Version</p>
                 <p className="text-4xl font-black text-gray-400">{compare.ats_v1}</p>
+                <p className="text-xs text-gray-400 mt-1">ATS Score</p>
               </div>
 
-              <div className="flex flex-col items-center justify-center gap-1 px-2">
-                <div className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-base ${
+              <div className="flex flex-col items-center gap-2">
+                <div className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm ${
                   compare.ats_improvement > 0 ? "bg-emerald-100 text-emerald-700" :
                   compare.ats_improvement < 0 ? "bg-red-100 text-red-700" : "bg-gray-100 text-gray-500"
                 }`}>
-                  {compare.ats_improvement > 0
-                    ? <TrendingUp className="h-5 w-5" />
-                    : compare.ats_improvement < 0
-                    ? <TrendingDown className="h-5 w-5" />
-                    : <Minus className="h-5 w-5" />}
+                  {compare.ats_improvement > 0 ? <TrendingUp className="h-4 w-4" /> :
+                   compare.ats_improvement < 0 ? <TrendingDown className="h-4 w-4" /> :
+                   <Equal className="h-4 w-4" />}
                   {compare.ats_improvement > 0 ? "+" : ""}{compare.ats_improvement} pts
                 </div>
                 {pctImprovement !== 0 && (
                   <span className={`text-xs font-bold ${pctImprovement > 0 ? "text-emerald-600" : "text-red-500"}`}>
-                    {pctImprovement > 0 ? "▲" : "▼"} {Math.abs(pctImprovement)}% {pctImprovement > 0 ? "improvement" : "decrease"}
+                    {pctImprovement > 0 ? "▲" : "▼"} {Math.abs(pctImprovement)}%
                   </span>
                 )}
               </div>
 
-              <div className="flex-1 text-center p-4 bg-blue-50 rounded-2xl">
-                <p className="text-xs text-gray-400 mb-1">Latest ATS Score</p>
+              <div className="text-center p-4 bg-blue-50 border border-blue-200 rounded-2xl">
+                <p className="text-xs text-blue-500 mb-1 font-medium">Latest Version</p>
                 <p className="text-4xl font-black text-blue-600">{compare.ats_v2}</p>
+                <p className="text-xs text-blue-400 mt-1">ATS Score</p>
               </div>
             </div>
 
@@ -272,70 +242,88 @@ export default function AnalysisPage() {
               </div>
             )}
 
-            {/* Added / Removed / Unchanged counts summary */}
-            <div className="grid grid-cols-3 gap-3 text-center">
-              <div className="p-3 bg-emerald-50 border border-emerald-100 rounded-xl">
-                <p className="text-2xl font-black text-emerald-600">{compare.added?.length}</p>
-                <p className="text-xs text-emerald-700 font-medium mt-0.5">✅ Added</p>
-              </div>
-              <div className="p-3 bg-red-50 border border-red-100 rounded-xl">
-                <p className="text-2xl font-black text-red-500">{compare.removed?.length}</p>
-                <p className="text-xs text-red-600 font-medium mt-0.5">❌ Removed</p>
-              </div>
-              <div className="p-3 bg-gray-50 border border-gray-100 rounded-xl">
-                <p className="text-2xl font-black text-gray-500">{compare.unchanged?.length}</p>
-                <p className="text-xs text-gray-500 font-medium mt-0.5">↔ Unchanged</p>
-              </div>
-            </div>
+            {/* Side-by-side diff */}
+            {(compare.added?.length > 0 || compare.removed?.length > 0) && (
+              <div className="grid grid-cols-2 gap-3">
+                {/* Removed — Previous */}
+                <div className="rounded-xl border border-red-200 overflow-hidden">
+                  <div className="bg-red-50 px-4 py-2.5 flex items-center gap-2 border-b border-red-200">
+                    <XCircle className="h-4 w-4 text-red-500" />
+                    <span className="text-sm font-bold text-red-700">Previous</span>
+                    <span className="ml-auto text-xs font-bold bg-red-100 text-red-600 px-2 py-0.5 rounded-full">
+                      {compare.removed?.length} removed
+                    </span>
+                  </div>
+                  <div className="divide-y divide-red-100 max-h-60 overflow-y-auto">
+                    {compare.removed?.length > 0 ? compare.removed.map((item: any, i: number) => (
+                      <div key={i} className="flex items-start gap-2 px-4 py-2.5 bg-red-50/50">
+                        <span className="text-red-400 font-bold text-sm mt-0.5">−</span>
+                        <div>
+                          <span className="text-xs font-bold text-red-600 uppercase tracking-wide">{item.section}</span>
+                          <p className="text-sm text-gray-700 capitalize mt-0.5">{item.item}</p>
+                        </div>
+                      </div>
+                    )) : (
+                      <p className="text-xs text-gray-400 text-center py-6">Nothing removed</p>
+                    )}
+                  </div>
+                </div>
 
-            {/* Added details */}
-            {compare.added?.length > 0 && (
-              <div>
-                <p className="text-sm font-bold text-emerald-700 mb-2 flex items-center gap-1.5">
-                  <CheckCircle className="h-4 w-4" /> What you added
-                </p>
-                <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
-                  {compare.added.map((item: any, i: number) => (
-                    <div key={i} className="flex items-center gap-2 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2">
-                      <span className="px-2 py-0.5 bg-emerald-200 text-emerald-800 text-xs font-bold rounded">{item.section}</span>
-                      <span className="text-sm text-gray-700 capitalize">{item.item}</span>
-                    </div>
-                  ))}
+                {/* Added — Latest */}
+                <div className="rounded-xl border border-emerald-200 overflow-hidden">
+                  <div className="bg-emerald-50 px-4 py-2.5 flex items-center gap-2 border-b border-emerald-200">
+                    <CheckCircle className="h-4 w-4 text-emerald-500" />
+                    <span className="text-sm font-bold text-emerald-700">Latest</span>
+                    <span className="ml-auto text-xs font-bold bg-emerald-100 text-emerald-600 px-2 py-0.5 rounded-full">
+                      {compare.added?.length} added
+                    </span>
+                  </div>
+                  <div className="divide-y divide-emerald-100 max-h-60 overflow-y-auto">
+                    {compare.added?.length > 0 ? compare.added.map((item: any, i: number) => (
+                      <div key={i} className="flex items-start gap-2 px-4 py-2.5 bg-emerald-50/50">
+                        <span className="text-emerald-500 font-bold text-sm mt-0.5">+</span>
+                        <div>
+                          <span className="text-xs font-bold text-emerald-700 uppercase tracking-wide">{item.section}</span>
+                          <p className="text-sm text-gray-700 capitalize mt-0.5">{item.item}</p>
+                        </div>
+                      </div>
+                    )) : (
+                      <p className="text-xs text-gray-400 text-center py-6">Nothing added</p>
+                    )}
+                  </div>
                 </div>
               </div>
             )}
 
-            {/* Removed details */}
-            {compare.removed?.length > 0 && (
-              <div>
-                <p className="text-sm font-bold text-red-600 mb-2 flex items-center gap-1.5">
-                  <XCircle className="h-4 w-4" /> What you removed
-                </p>
-                <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
-                  {compare.removed.map((item: any, i: number) => (
-                    <div key={i} className="flex items-center gap-2 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
-                      <span className="px-2 py-0.5 bg-red-200 text-red-800 text-xs font-bold rounded">{item.section}</span>
-                      <span className="text-sm text-gray-700 capitalize">{item.item}</span>
-                    </div>
-                  ))}
-                </div>
+            {/* Unchanged count */}
+            {compare.unchanged?.length > 0 && (
+              <div className="flex items-center gap-2 px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl">
+                <Minus className="h-4 w-4 text-gray-400" />
+                <span className="text-sm text-gray-500">
+                  <span className="font-bold text-gray-700">{compare.unchanged.length}</span> items unchanged across all sections
+                </span>
               </div>
             )}
 
-            {/* Overall verdict */}
+            {/* No changes at all */}
+            {noChanges && (
+              <div className="text-center py-4 text-gray-400 text-sm">
+                ✅ Both versions are identical — no sections were added or removed.
+              </div>
+            )}
+
+            {/* Verdict */}
             <div className={`rounded-xl p-4 border text-sm font-medium ${
-              compare.ats_improvement > 5
-                ? "bg-emerald-50 border-emerald-200 text-emerald-800"
-                : compare.ats_improvement < 0
-                ? "bg-red-50 border-red-200 text-red-800"
-                : "bg-gray-50 border-gray-200 text-gray-700"
+              compare.ats_improvement > 5 ? "bg-emerald-50 border-emerald-200 text-emerald-800" :
+              compare.ats_improvement < 0 ? "bg-red-50 border-red-200 text-red-800" :
+              "bg-gray-50 border-gray-200 text-gray-700"
             }`}>
               {compare.ats_improvement > 5
                 ? `🎉 Great improvement! Your resume got ${pctImprovement}% better. ${compare.added?.length} new items added across ${compare.sections_changed?.length} sections.`
                 : compare.ats_improvement < 0
-                ? `⚠️ Your ATS score dropped by ${Math.abs(compare.ats_improvement)} pts. ${compare.removed?.length} items were removed — consider adding them back.`
+                ? `⚠️ ATS score dropped by ${Math.abs(compare.ats_improvement)} pts. ${compare.removed?.length} items removed — consider adding them back.`
                 : compare.ats_improvement === 0 && !noChanges
-                ? `📋 Some sections changed but ATS score stayed the same. Focus on adding quantified achievements and keywords.`
+                ? `📋 Sections changed but ATS score stayed the same. Focus on adding quantified achievements and keywords.`
                 : `📈 Small improvement of ${compare.ats_improvement} pts. Keep adding relevant skills and experience details.`
               }
             </div>
@@ -474,7 +462,7 @@ export default function AnalysisPage() {
             <div className="w-7 h-7 bg-amber-100 rounded-lg flex items-center justify-center">
               <AlertCircle className="h-3.5 w-3.5 text-amber-600" />
             </div>
-            AI Feedback
+            ATS Signals
           </h3>
           <div className="space-y-2">
             {resumeAnalysis.feedback.map((f: any, i: number) => {
@@ -489,6 +477,97 @@ export default function AnalysisPage() {
                 </div>
               );
             })}
+          </div>
+        </div>
+      )}
+
+      {/* ── Smart Feedback (ResumeWorded style) ─────────────────────────── */}
+      {resumeAnalysis.smart_feedback && (
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="p-5 border-b border-gray-100">
+            <h3 className="font-bold text-gray-900 flex items-center gap-2">
+              <Zap className="h-4 w-4 text-violet-500" /> Smart Resume Feedback
+            </h3>
+            {resumeAnalysis.smart_feedback.overall_verdict && (
+              <p className="text-sm text-gray-500 mt-1">{resumeAnalysis.smart_feedback.overall_verdict}</p>
+            )}
+          </div>
+
+          <div className="p-5 space-y-6">
+            {/* Strengths */}
+            {resumeAnalysis.smart_feedback.strengths?.length > 0 && (
+              <div>
+                <p className="text-sm font-bold text-emerald-700 mb-3 flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4" /> What's Working Well
+                </p>
+                <div className="space-y-2">
+                  {resumeAnalysis.smart_feedback.strengths.map((s: any, i: number) => (
+                    <div key={i} className="flex items-start gap-3 p-3 bg-emerald-50 border border-emerald-100 rounded-xl">
+                      <CheckCircle className="h-4 w-4 text-emerald-500 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <span className="text-xs font-bold text-emerald-700 uppercase tracking-wide">{s.section}</span>
+                        {s.item && <span className="text-xs text-emerald-600"> · {s.item}</span>}
+                        <p className="text-sm text-gray-700 mt-0.5">{s.reason}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Improvements */}
+            {resumeAnalysis.smart_feedback.improvements?.length > 0 && (
+              <div>
+                <p className="text-sm font-bold text-red-600 mb-3 flex items-center gap-2">
+                  <XCircle className="h-4 w-4" /> What Needs Fixing
+                </p>
+                <div className="space-y-3">
+                  {resumeAnalysis.smart_feedback.improvements.map((imp: any, i: number) => (
+                    <div key={i} className={`p-4 rounded-xl border ${
+                      imp.priority === "high" ? "bg-red-50 border-red-200" :
+                      imp.priority === "medium" ? "bg-amber-50 border-amber-200" :
+                      "bg-gray-50 border-gray-200"
+                    }`}>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                          imp.priority === "high" ? "bg-red-100 text-red-700" :
+                          imp.priority === "medium" ? "bg-amber-100 text-amber-700" :
+                          "bg-gray-200 text-gray-600"
+                        }`}>{imp.priority}</span>
+                        <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{imp.section}</span>
+                        {imp.item && <span className="text-xs text-gray-400">· {imp.item}</span>}
+                      </div>
+                      <p className="text-sm font-medium text-gray-800">{imp.issue}</p>
+                      {imp.fix && (
+                        <p className="text-xs text-gray-600 mt-1.5 bg-white/70 rounded-lg px-3 py-2 border border-gray-100">
+                          💡 {imp.fix}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Missing */}
+            {resumeAnalysis.smart_feedback.missing?.length > 0 && (
+              <div>
+                <p className="text-sm font-bold text-amber-700 mb-3 flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4" /> What's Missing
+                </p>
+                <div className="space-y-2">
+                  {resumeAnalysis.smart_feedback.missing.map((m: any, i: number) => (
+                    <div key={i} className="p-3 bg-amber-50 border border-amber-100 rounded-xl">
+                      <p className="text-sm font-semibold text-gray-800">{m.what}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">{m.why}</p>
+                      {m.example && (
+                        <p className="text-xs text-amber-700 mt-1.5 font-medium">Example: {m.example}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
