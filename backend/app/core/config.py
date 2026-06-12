@@ -21,6 +21,9 @@ class Settings(BaseSettings):
     UPLOAD_DIR: str = "uploads"
     MAX_FILE_SIZE_MB: int = 10
 
+    ADZUNA_APP_ID: str = ""
+    ADZUNA_APP_KEY: str = ""
+
 
 @lru_cache
 def get_settings() -> Settings:

@@ -21,18 +21,15 @@ Usage:
     )
 """
 
-import os
 import re
 import json
 import time
 import requests
 from collections import Counter
-from datetime import datetime, timezone
-from typing import List, Optional
+from typing import List
 
 import spacy
 from groq import Groq
-from pymongo import MongoClient
 
 from app.core.config import settings
 from app.core.embedder import embedder as _embedder
@@ -255,17 +252,17 @@ def resume_strength_meter(resume: dict) -> dict:
 # FEATURE 3 — Job-Specific Resume Tailoring
 # ─────────────────────────────────────────────────────────────────────────────
 
-def tailor_resume_for_job(resume: dict, job_description: str, db=None) -> dict:
+def tailor_resume_for_job(resume: dict, job_description: str) -> dict:
     """
     Tailor a candidate's resume for a specific job description using:
       - spaCy → extract key skills/keywords from JD
       - LLaMA 3.3 70B → rewrite resume sections to match JD
-      - MongoDB → save original + tailored versions to resume_versions collection
+
+    MongoDB save is handled by the async endpoint (tailor_resume in resume.py).
 
     Args:
         resume:          Parsed resume dict (Agent 1 output)
         job_description: Plain text JD string (no URL fetching)
-        db:              Motor/pymongo DB instance (optional — saves to MongoDB if provided)
 
     Returns:
         {
@@ -329,31 +326,6 @@ Return ONLY valid JSON with this structure:
             "is_tailored":           True,
             "tailored_for_jd":       job_description[:200],
         }
-
-        # ── Step 4: Save both versions to MongoDB ────────────────────────────
-        if db is not None:
-            try:
-                now = datetime.now(timezone.utc)
-                student_id = str(resume.get("student_id", "unknown"))
-
-                # Save original
-                db.resume_versions.insert_one({
-                    "student_id":   student_id,
-                    "version_type": "original",
-                    "resume":       {k: v for k, v in resume.items() if k != "_id"},
-                    "created_at":   now,
-                })
-                # Save tailored
-                db.resume_versions.insert_one({
-                    "student_id":   student_id,
-                    "version_type": "tailored",
-                    "resume":       {k: v for k, v in tailored_resume.items() if k != "_id"},
-                    "jd_snippet":   job_description[:300],
-                    "created_at":   now,
-                })
-            except Exception as db_err:
-                # DB save failure is non-fatal — still return result
-                tailored_resume["db_save_warning"] = str(db_err)
 
         return {
             "tailored_resume":         tailored_resume,
@@ -654,36 +626,29 @@ def _get_fallback_jobs(role: str) -> List[dict]:
     return _FALLBACK_JOBS["default"]
 
 
-def get_jobs(role: str, location: str = "India", db=None) -> dict:
+def get_jobs(role: str, location: str = "India") -> dict:
     """
-    Fetch live jobs from Adzuna API.
-    Automatically falls back to static list if API fails.
-    Embeds each job description and saves to MongoDB jobs collection.
+    Fetch live jobs from Adzuna API with intelligent fallback.
 
-    Layer 1 — Adzuna live API
-    Layer 2 — Static fallback (5 realistic Indian jobs)
+    Layer 1 — Adzuna live API (https://api.adzuna.com)
+    Layer 2 — Static fallback (5 realistic Indian jobs per role category)
 
-    Both layers return identical output format.
+    Caller never knows which layer ran — same output format always.
+    MongoDB save is handled by the async endpoint (get_jobs is sync-safe).
 
     Args:
         role:     Job role to search (e.g. "Python Developer")
         location: Location string (default: "India")
-        db:       Motor/pymongo DB instance (optional — saves to MongoDB if provided)
 
     Returns:
         {
-            "jobs": [
-                {
-                    "title": "...", "company": "...", "location": "...",
-                    "description": "...", "salary_min": 0, "salary_max": 0,
-                    "url": "...", "source": "live" | "fallback"
-                },
-                ...
-            ],
-            "source":    "live" | "fallback",
-            "total":     20,
-            "role":      "Python Developer",
-            "location":  "India"
+            "jobs": [{"title", "company", "location", "description",
+                      "salary_min", "salary_max", "url", "source",
+                      "embedding": [...]}, ...],
+            "source":   "live" | "fallback",
+            "total":    20,
+            "role":     "Python Developer",
+            "location": "India"
         }
     """
     source = "live"
@@ -691,11 +656,11 @@ def get_jobs(role: str, location: str = "India", db=None) -> dict:
 
     # ── Layer 1: Adzuna API ──────────────────────────────────────────────────
     try:
-        app_id  = os.environ.get("ADZUNA_APP_ID", "")
-        app_key = os.environ.get("ADZUNA_APP_KEY", "")
+        app_id  = settings.ADZUNA_APP_ID
+        app_key = settings.ADZUNA_APP_KEY
 
         if not app_id or not app_key:
-            raise ValueError("ADZUNA_APP_ID or ADZUNA_APP_KEY not set in environment")
+            raise ValueError("ADZUNA_APP_ID or ADZUNA_APP_KEY not configured")
 
         resp = requests.get(
             "https://api.adzuna.com/v1/api/jobs/in/search/1",
@@ -710,8 +675,7 @@ def get_jobs(role: str, location: str = "India", db=None) -> dict:
             timeout=8,
         )
         resp.raise_for_status()
-        data = resp.json()
-        results = data.get("results", [])
+        results = resp.json().get("results", [])
 
         if not results:
             raise ValueError("Adzuna returned 0 results")
@@ -734,41 +698,18 @@ def get_jobs(role: str, location: str = "India", db=None) -> dict:
         for job in _get_fallback_jobs(role):
             raw_jobs.append({**job, "source": "fallback"})
 
-    # ── Embed + Save to MongoDB ──────────────────────────────────────────────
-    final_jobs = []
+    # ── Embed each job description ───────────────────────────────────────────
     for job in raw_jobs:
         try:
-            # Create embedding from title + description
-            embed_text = f"{job['title']} {job['company']} {job['description'][:300]}"
-            embedding  = _embedder.encode(embed_text).tolist()
-            job["embedding"] = embedding
+            embed_text   = f"{job['title']} {job['company']} {job['description'][:300]}"
+            job["embedding"] = _embedder.encode(embed_text).tolist()
         except Exception:
             job["embedding"] = []
 
-        final_jobs.append(job)
-
-        # Save to MongoDB jobs collection
-        if db is not None:
-            try:
-                db.jobs.update_one(
-                    {"title": job["title"], "company": job["company"]},
-                    {"$set": {
-                        **job,
-                        "is_active":  True,
-                        "created_at": datetime.now(timezone.utc),
-                    }},
-                    upsert=True,
-                )
-            except Exception:
-                pass  # Non-fatal — continue
-
     return {
-        "jobs":     [
-            {k: v for k, v in j.items() if k != "embedding"}  # don't return embedding in response
-            for j in final_jobs
-        ],
+        "jobs":     raw_jobs,          # includes "embedding" — endpoint strips it for response
         "source":   source,
-        "total":    len(final_jobs),
+        "total":    len(raw_jobs),
         "role":     role,
         "location": location,
     }

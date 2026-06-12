@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -102,15 +103,12 @@ async def get_latest_resume(db=Depends(get_db), current_user=Depends(get_current
 # ── Feature 1: Resume Version Compare ────────────────────────────────────────
 @router.get("/compare")
 async def compare_resumes(db=Depends(get_db), current_user=Depends(get_current_user)):
-    """
-    Compare student's last 2 resume versions.
-    Returns section-level diff + ATS score before vs after.
-    """
+    """Compare student's last 2 resume versions — section diff + ATS before/after."""
     student = await StudentRepository(db).get_by_user_id(str(current_user["_id"]))
     if not student:
         raise HTTPException(status_code=404, detail="Student not found")
 
-    # Fetch last 2 resumes (most recent first)
+    # Fetch last 2 resumes sorted newest first
     resumes = await db.resumes.find(
         {"student_id": str(student["_id"])}
     ).sort("created_at", -1).limit(2).to_list(2)
@@ -118,7 +116,7 @@ async def compare_resumes(db=Depends(get_db), current_user=Depends(get_current_u
     if len(resumes) < 2:
         raise HTTPException(status_code=404, detail="Need at least 2 resume uploads to compare")
 
-    # resumes[0] = newest, resumes[1] = older → compare older→newer
+    # resumes[1] = older (v1), resumes[0] = newer (v2)
     result = compare_resume_versions(resumes[1], resumes[0])
     if "error" in result:
         raise HTTPException(status_code=500, detail=result["error"])
@@ -128,10 +126,7 @@ async def compare_resumes(db=Depends(get_db), current_user=Depends(get_current_u
 # ── Feature 2: Resume Strength Meter ─────────────────────────────────────────
 @router.get("/strength")
 async def get_resume_strength(db=Depends(get_db), current_user=Depends(get_current_user)):
-    """
-    Score student's latest resume across 5 criteria (20pts each = 100 total).
-    Returns overall score + per-section breakdown + improvement tips.
-    """
+    """Score latest resume across 5 criteria (20pts each). Returns breakdown + tips."""
     student = await StudentRepository(db).get_by_user_id(str(current_user["_id"]))
     if not student:
         raise HTTPException(status_code=404, detail="Student not found")
@@ -154,9 +149,8 @@ async def tailor_resume(
     current_user=Depends(get_current_user),
 ):
     """
-    Tailor student's latest resume for a specific job description.
-    Uses spaCy for keyword extraction + LLaMA 3.3 70B for rewriting.
-    Saves both original and tailored versions to resume_versions collection.
+    Tailor latest resume for a job description using spaCy + LLaMA 3.3 70B.
+    Saves original + tailored versions to resume_versions collection (async).
     """
     student = await StudentRepository(db).get_by_user_id(str(current_user["_id"]))
     if not student:
@@ -166,7 +160,30 @@ async def tailor_resume(
     if not resume:
         raise HTTPException(status_code=404, detail="No resume found. Upload a resume first.")
 
-    result = tailor_resume_for_job(resume, payload.job_description, db)
+    # Call sync function without db — we handle async saves below
+    result = tailor_resume_for_job(resume, payload.job_description)
     if "error" in result:
         raise HTTPException(status_code=500, detail=result["error"])
+
+    # Async save both versions to MongoDB resume_versions collection
+    now = datetime.now(timezone.utc)
+    student_id = str(student["_id"])
+    try:
+        await db.resume_versions.insert_one({
+            "student_id":   student_id,
+            "version_type": "original",
+            "resume":       {k: v for k, v in resume.items() if k != "_id"},
+            "created_at":   now,
+        })
+        await db.resume_versions.insert_one({
+            "student_id":   student_id,
+            "version_type": "tailored",
+            "resume":       {k: v for k, v in result["tailored_resume"].items() if k != "_id"},
+            "jd_snippet":   payload.job_description[:300],
+            "created_at":   now,
+        })
+    except Exception as e:
+        # Non-fatal — still return tailored result
+        result["db_save_warning"] = str(e)
+
     return result
