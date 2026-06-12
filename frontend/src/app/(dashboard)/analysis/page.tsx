@@ -1,23 +1,57 @@
 "use client";
+import { useEffect, useState } from "react";
 import { useAnalysisStore } from "@/lib/store";
+import { resumeApi } from "@/lib/api";
 import Link from "next/link";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
-import { FileText, Briefcase, GraduationCap, FolderOpen, Award, AlertCircle, ArrowRight } from "lucide-react";
+import {
+  FileText, Briefcase, GraduationCap, FolderOpen, Award, AlertCircle,
+  ArrowRight, Zap, CheckCircle, XCircle, TrendingUp, TrendingDown, Minus, GitCompare
+} from "lucide-react";
 
-const COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899", "#14b8a6", "#f97316"];
-
+const COLORS = ["#3b82f6","#10b981","#f59e0b","#ef4444","#8b5cf6","#ec4899","#14b8a6","#f97316"];
 const scoreColor = (s: number) => s >= 80 ? "#10b981" : s >= 60 ? "#f59e0b" : "#ef4444";
 const scoreLabel = (s: number) => s >= 80 ? "Excellent" : s >= 60 ? "Good" : "Needs Work";
-const scoreBg = (s: number) => s >= 80 ? "from-emerald-500 to-green-600" : s >= 60 ? "from-amber-500 to-orange-500" : "from-red-500 to-rose-600";
+const scoreBg    = (s: number) => s >= 80 ? "from-emerald-500 to-green-600" : s >= 60 ? "from-amber-500 to-orange-500" : "from-red-500 to-rose-600";
 
 const severityConfig: any = {
-  error: { bg: "bg-red-50", text: "text-red-700", border: "border-red-200", badge: "bg-red-100 text-red-700" },
+  error:   { bg: "bg-red-50",   text: "text-red-700",   border: "border-red-200",   badge: "bg-red-100 text-red-700" },
   warning: { bg: "bg-amber-50", text: "text-amber-700", border: "border-amber-200", badge: "bg-amber-100 text-amber-700" },
-  info: { bg: "bg-blue-50", text: "text-blue-700", border: "border-blue-200", badge: "bg-blue-100 text-blue-700" },
+  info:    { bg: "bg-blue-50",  text: "text-blue-700",  border: "border-blue-200",  badge: "bg-blue-100 text-blue-700" },
+};
+
+// Strength meter bar colors
+const strengthColor = (s: number) => s >= 20 ? "#10b981" : s >= 10 ? "#f59e0b" : "#ef4444";
+const strengthLabel: any = {
+  skills:         "Skills (5+ skills = full marks)",
+  experience:     "Experience (50+ words = full marks)",
+  summary:        "Summary / Objective",
+  education:      "Education (degree + institution)",
+  certifications: "Certifications",
 };
 
 export default function AnalysisPage() {
   const { resumeAnalysis } = useAnalysisStore();
+  const [strength, setStrength] = useState<any>(null);
+  const [compare, setCompare]   = useState<any>(null);
+  const [cmpError, setCmpError] = useState("");
+
+  // Auto-load strength meter + compare on mount
+  useEffect(() => {
+    // Strength meter
+    resumeApi.getStrength()
+      .then((r) => setStrength(r.data))
+      .catch(() => {});
+
+    // Compare — only if 2+ versions exist
+    resumeApi.compare()
+      .then((r) => setCompare(r.data))
+      .catch((e) => {
+        const msg = e.response?.data?.detail || "";
+        if (!msg.includes("at least 2")) setCmpError(msg);
+        // If only 1 version, silently skip — no error shown
+      });
+  }, []);
 
   if (!resumeAnalysis) {
     return (
@@ -56,19 +90,18 @@ export default function AnalysisPage() {
           <div className="space-y-2 flex-1">
             <h2 className="text-2xl font-black text-gray-900">{resumeAnalysis.candidate_name || "Candidate"}</h2>
             <div className="flex flex-wrap gap-3 text-sm text-gray-600">
-              {resumeAnalysis.email && <span className="flex items-center gap-1.5">📧 {resumeAnalysis.email}</span>}
-              {resumeAnalysis.phone && <span className="flex items-center gap-1.5">📱 {resumeAnalysis.phone}</span>}
-              {resumeAnalysis.cgpa && <span className="flex items-center gap-1.5">🎓 CGPA {resumeAnalysis.cgpa}</span>}
-              {resumeAnalysis.graduation_year && <span className="flex items-center gap-1.5">📅 Class of {resumeAnalysis.graduation_year}</span>}
+              {resumeAnalysis.email && <span>📧 {resumeAnalysis.email}</span>}
+              {resumeAnalysis.phone && <span>📱 {resumeAnalysis.phone}</span>}
+              {resumeAnalysis.cgpa  && <span>🎓 CGPA {resumeAnalysis.cgpa}</span>}
+              {resumeAnalysis.graduation_year && <span>📅 Class of {resumeAnalysis.graduation_year}</span>}
             </div>
           </div>
-          {/* Score */}
           <div className="flex-shrink-0 text-center">
             <div className="relative w-28 h-28">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
-                  <Pie data={[{ value: score }, { value: 100 - score }]} cx="50%" cy="50%" innerRadius={38} outerRadius={52}
-                    startAngle={90} endAngle={-270} dataKey="value">
+                  <Pie data={[{ value: score }, { value: 100 - score }]} cx="50%" cy="50%"
+                    innerRadius={38} outerRadius={52} startAngle={90} endAngle={-270} dataKey="value">
                     <Cell fill={scoreColor(score)} />
                     <Cell fill="#f3f4f6" />
                   </Pie>
@@ -84,6 +117,127 @@ export default function AnalysisPage() {
           </div>
         </div>
       </div>
+
+      {/* ── Strength Meter ──────────────────────────────────────────────── */}
+      {strength && (
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+          <h3 className="font-bold text-gray-900 mb-1 flex items-center gap-2">
+            <Zap className="h-4 w-4 text-amber-500" /> Resume Strength Meter
+            <span className={`ml-auto text-sm font-bold px-3 py-1 rounded-full ${
+              strength.overall >= 80 ? "bg-emerald-100 text-emerald-700" :
+              strength.overall >= 60 ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700"
+            }`}>{strength.overall}/100 — {strength.grade}</span>
+          </h3>
+          <p className="text-xs text-gray-400 mb-4">Each section scored out of 20 points</p>
+
+          <div className="space-y-3">
+            {Object.entries(strength.breakdown).map(([key, val]: any) => (
+              <div key={key}>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-sm text-gray-700 font-medium capitalize">{strengthLabel[key] || key}</span>
+                  <span className="text-sm font-black" style={{ color: strengthColor(val) }}>{val}/20</span>
+                </div>
+                <div className="w-full bg-gray-100 rounded-full h-2.5">
+                  <div className="h-2.5 rounded-full transition-all duration-500"
+                    style={{ width: `${(val / 20) * 100}%`, backgroundColor: strengthColor(val) }} />
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Tips */}
+          {strength.tips?.length > 0 && (
+            <div className="mt-4 space-y-1.5">
+              {strength.tips.map((tip: string, i: number) => (
+                <div key={i} className="flex items-start gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+                  <AlertCircle className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
+                  {tip}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Auto Compare (shows if 2+ versions) ─────────────────────────── */}
+      {compare && (
+        <div className="bg-white rounded-2xl border border-blue-100 shadow-sm p-6">
+          <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
+            <GitCompare className="h-4 w-4 text-blue-600" />
+            Resume Version Comparison
+            <span className="ml-auto text-xs text-gray-400">Previous vs Latest</span>
+          </h3>
+
+          {/* ATS Score diff */}
+          <div className="flex items-center gap-4 mb-5">
+            <div className="text-center flex-1 p-3 bg-gray-50 rounded-xl">
+              <p className="text-3xl font-black text-gray-400">{compare.ats_v1}</p>
+              <p className="text-xs text-gray-400 mt-1">Previous</p>
+            </div>
+            <div className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-lg ${
+              compare.ats_improvement > 0 ? "bg-emerald-50 text-emerald-600" :
+              compare.ats_improvement < 0 ? "bg-red-50 text-red-600" : "bg-gray-50 text-gray-500"
+            }`}>
+              {compare.ats_improvement > 0 ? <TrendingUp className="h-5 w-5" /> :
+               compare.ats_improvement < 0 ? <TrendingDown className="h-5 w-5" /> :
+               <Minus className="h-5 w-5" />}
+              {compare.ats_improvement > 0 ? "+" : ""}{compare.ats_improvement} pts
+            </div>
+            <div className="text-center flex-1 p-3 bg-blue-50 rounded-xl">
+              <p className="text-3xl font-black text-blue-600">{compare.ats_v2}</p>
+              <p className="text-xs text-gray-400 mt-1">Latest</p>
+            </div>
+          </div>
+
+          {/* Sections changed */}
+          {compare.sections_changed?.length > 0 && (
+            <div className="flex flex-wrap gap-2 mb-4">
+              <span className="text-xs text-gray-500 font-medium self-center">Changed sections:</span>
+              {compare.sections_changed.map((s: string) => (
+                <span key={s} className="px-2 py-0.5 bg-amber-100 text-amber-700 text-xs font-semibold rounded-full">{s}</span>
+              ))}
+            </div>
+          )}
+
+          {/* Added / Removed */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <p className="text-sm font-bold text-emerald-700 mb-2 flex items-center gap-1">
+                <CheckCircle className="h-4 w-4" /> Added ({compare.added?.length})
+              </p>
+              {compare.added?.length === 0 ? (
+                <p className="text-xs text-gray-400">Nothing added</p>
+              ) : (
+                <div className="space-y-1 max-h-36 overflow-y-auto">
+                  {compare.added?.map((item: any, i: number) => (
+                    <div key={i} className="flex items-center gap-2 text-xs">
+                      <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-700 rounded font-medium">{item.section}</span>
+                      <span className="text-gray-600 capitalize">{item.item}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div>
+              <p className="text-sm font-bold text-red-600 mb-2 flex items-center gap-1">
+                <XCircle className="h-4 w-4" /> Removed ({compare.removed?.length})
+              </p>
+              {compare.removed?.length === 0 ? (
+                <p className="text-xs text-gray-400">Nothing removed</p>
+              ) : (
+                <div className="space-y-1 max-h-36 overflow-y-auto">
+                  {compare.removed?.map((item: any, i: number) => (
+                    <div key={i} className="flex items-center gap-2 text-xs">
+                      <span className="px-1.5 py-0.5 bg-red-100 text-red-700 rounded font-medium">{item.section}</span>
+                      <span className="text-gray-600 capitalize">{item.item}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Skills */}
@@ -217,7 +371,7 @@ export default function AnalysisPage() {
         </div>
       )}
 
-      {/* Feedback */}
+      {/* AI Feedback */}
       {resumeAnalysis.feedback?.length > 0 && (
         <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
           <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
