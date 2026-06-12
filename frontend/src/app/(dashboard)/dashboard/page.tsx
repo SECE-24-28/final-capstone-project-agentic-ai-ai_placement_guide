@@ -1,10 +1,21 @@
 "use client";
 import { useEffect, useState } from "react";
-import { RadialBarChart, RadialBar, PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
+import dynamic from "next/dynamic";
 import { FileText, Target, Briefcase, Award, TrendingUp, ArrowRight, Zap, BookOpen, CheckCircle, XCircle, Clock, Info, ChevronDown, ChevronUp } from "lucide-react";
 import { studentApi } from "@/lib/api";
 import { useAnalysisStore } from "@/lib/store";
 import Link from "next/link";
+
+// ssr:false prevents Recharts hydration mismatch
+// (server generates recharts1-clip, client generates recharts2-clip → ID mismatch)
+const ReadinessRadialChart = dynamic(
+  () => import("@/components/DashboardCharts").then((m) => ({ default: m.ReadinessRadialChart })),
+  { ssr: false, loading: () => <div className="w-[160px] h-[160px]" /> }
+);
+const SkillGapPieChart = dynamic(
+  () => import("@/components/DashboardCharts").then((m) => ({ default: m.SkillGapPieChart })),
+  { ssr: false, loading: () => <div className="w-24 h-24" /> }
+);
 
 const COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899", "#14b8a6", "#f97316"];
 
@@ -110,10 +121,7 @@ export default function DashboardPage() {
             )}
           </div>
           <div className="flex-shrink-0 w-[160px] h-[160px]">
-            <RadialBarChart width={160} height={160} cx={80} cy={80} innerRadius={50} outerRadius={72}
-              data={[{ value: readiness, fill: readinessColor }]} startAngle={90} endAngle={-270}>
-              <RadialBar dataKey="value" maxValue={100} cornerRadius={8} background={{ fill: "rgba(255,255,255,0.1)" }} />
-            </RadialBarChart>
+            <ReadinessRadialChart value={readiness} color={readinessColor} />
           </div>
         </div>
       </div>
@@ -205,16 +213,7 @@ export default function DashboardPage() {
               {/* Donut chart */}
               <div className="flex items-center gap-4">
                 <div className="w-24 h-24 flex-shrink-0">
-                  <PieChart width={96} height={96}>
-                    <Pie data={[
-                      { name: "Matched", value: matchedCount },
-                      { name: "Missing", value: missingCount },
-                    ]} cx={48} cy={48} innerRadius={28} outerRadius={44} dataKey="value" startAngle={90} endAngle={-270}>
-                      <Cell fill="#10b981" />
-                      <Cell fill="#fca5a5" />
-                    </Pie>
-                    <Tooltip formatter={(v: any, n: any) => [v, n]} contentStyle={{ fontSize: "11px", borderRadius: "8px" }} />
-                  </PieChart>
+                  <SkillGapPieChart matched={matchedCount} missing={missingCount} />
                 </div>
                 <div className="flex-1 space-y-2">
                   <div className="flex items-center gap-2">

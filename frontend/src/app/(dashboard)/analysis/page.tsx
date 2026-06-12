@@ -3,12 +3,22 @@ import { useEffect, useState } from "react";
 import { useAnalysisStore } from "@/lib/store";
 import { resumeApi } from "@/lib/api";
 import Link from "next/link";
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
+import dynamic from "next/dynamic";
 import {
   FileText, Briefcase, GraduationCap, FolderOpen, Award, AlertCircle,
   ArrowRight, Zap, CheckCircle, XCircle, TrendingUp, TrendingDown,
   Minus, GitCompare, Upload, Equal, Lightbulb
 } from "lucide-react";
+
+// ssr:false — prevents Recharts hydration ID mismatch on page reload
+const ATSDonutChart = dynamic(
+  () => import("@/components/AnalysisCharts").then((m) => ({ default: m.ATSDonutChart })),
+  { ssr: false, loading: () => <div className="w-full h-full" /> }
+);
+const SkillsPieChart = dynamic(
+  () => import("@/components/AnalysisCharts").then((m) => ({ default: m.SkillsPieChart })),
+  { ssr: false, loading: () => <div className="w-full h-[140px]" /> }
+);
 
 const COLORS = ["#3b82f6","#10b981","#f59e0b","#ef4444","#8b5cf6","#ec4899","#14b8a6","#f97316"];
 const scoreColor = (s: number) => s >= 80 ? "#10b981" : s >= 60 ? "#f59e0b" : "#ef4444";
@@ -104,17 +114,9 @@ export default function AnalysisPage() {
               {resumeAnalysis.graduation_year && <span>📅 Class of {resumeAnalysis.graduation_year}</span>}
             </div>
           </div>
-          <div className="flex-shrink-0 text-center">
+          <div className="flex-shrink-0">
             <div className="relative w-28 h-28">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie data={[{ value: score }, { value: 100 - score }]} cx="50%" cy="50%"
-                    innerRadius={38} outerRadius={52} startAngle={90} endAngle={-270} dataKey="value">
-                    <Cell fill={scoreColor(score)} />
-                    <Cell fill="#f3f4f6" />
-                  </Pie>
-                </PieChart>
-              </ResponsiveContainer>
+              <ATSDonutChart score={score} color={scoreColor(score)} />
               <div className="absolute inset-0 flex flex-col items-center justify-center">
                 <span className="text-2xl font-black" style={{ color: scoreColor(score) }}>{score}</span>
                 <span className="text-xs text-gray-400">/100</span>
@@ -349,15 +351,7 @@ export default function AnalysisPage() {
             ))}
           </div>
           {pieData.length > 0 && (
-            <ResponsiveContainer width="100%" height={140}>
-              <PieChart>
-                <Pie data={pieData} cx="50%" cy="50%" outerRadius={55} dataKey="value"
-                  label={({ name, value }) => `${name} (${value})`} labelLine={false} fontSize={10}>
-                  {pieData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                </Pie>
-                <Tooltip contentStyle={{ borderRadius: "12px", fontSize: "12px" }} />
-              </PieChart>
-            </ResponsiveContainer>
+            <SkillsPieChart data={pieData} colors={COLORS} />
           )}
         </div>
 
