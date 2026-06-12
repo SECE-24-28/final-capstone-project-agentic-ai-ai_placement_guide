@@ -14,6 +14,7 @@ from typing import List, Optional, Dict, Any, Tuple
 
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
+import numpy as np
 
 from app.core.embedder import embedder as _embedder
 
