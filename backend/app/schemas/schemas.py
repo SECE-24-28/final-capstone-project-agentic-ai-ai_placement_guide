@@ -1,6 +1,7 @@
 from pydantic import BaseModel, EmailStr, Field, field_validator
 from typing import Optional, List, Any
 from datetime import datetime
+import re
 
 
 # ─── Auth ─────────────────────────────────────────────────────────────────────
@@ -40,6 +41,17 @@ class EducationSchema(BaseModel):
     end_year: Optional[int] = None
     cgpa: Optional[float] = None
 
+    @field_validator("cgpa", mode="before")
+    @classmethod
+    def parse_cgpa(cls, v):
+        if v is None:
+            return None
+        if isinstance(v, (int, float)):
+            return float(v)
+        # Strip %, /10, /100, spaces and parse — handles "91.6%", "8.5/10"
+        cleaned = re.sub(r"[^\d.]", "", str(v).split("/")[0])
+        return float(cleaned) if cleaned else None
+
 
 class ExperienceSchema(BaseModel):
     company: Optional[str] = None
@@ -48,6 +60,16 @@ class ExperienceSchema(BaseModel):
     end_date: Optional[str] = None
     description: Optional[str] = None
     duration_months: Optional[int] = None
+
+    @field_validator("duration_months", mode="before")
+    @classmethod
+    def parse_duration(cls, v):
+        if v is None:
+            return None
+        if isinstance(v, int):
+            return v
+        cleaned = re.sub(r"[^\d]", "", str(v))
+        return int(cleaned) if cleaned else None
 
 
 class ProjectSchema(BaseModel):
@@ -61,6 +83,14 @@ class CertificationSchema(BaseModel):
     name: Optional[str] = None
     issuer: Optional[str] = None
     year: Optional[int] = None
+
+    @field_validator("year", mode="before")
+    @classmethod
+    def parse_year(cls, v):
+        if v is None:
+            return None
+        cleaned = re.sub(r"[^\d]", "", str(v))
+        return int(cleaned) if cleaned else None
 
 
 class FeedbackSchema(BaseModel):
@@ -85,6 +115,24 @@ class ResumeAnalysisResponse(BaseModel):
     readiness_score: float = 0.0
     feedback: List[FeedbackSchema] = []
     ats_breakdown: Optional[dict] = None
+
+    @field_validator("cgpa", mode="before")
+    @classmethod
+    def parse_cgpa(cls, v):
+        if v is None:
+            return None
+        if isinstance(v, (int, float)):
+            return float(v)
+        cleaned = re.sub(r"[^\d.]", "", str(v).split("/")[0])
+        return float(cleaned) if cleaned else None
+
+    @field_validator("graduation_year", mode="before")
+    @classmethod
+    def parse_grad_year(cls, v):
+        if v is None:
+            return None
+        cleaned = re.sub(r"[^\d]", "", str(v))
+        return int(cleaned) if cleaned else None
 
 
 # ─── Skill Gap ────────────────────────────────────────────────────────────────
