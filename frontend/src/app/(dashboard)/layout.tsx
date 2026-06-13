@@ -65,7 +65,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
         {/* Footer */}
         <div className="p-3 border-t border-gray-100">
-          <button onClick={() => { logout(); router.push("/login"); }}
+          <button onClick={() => { logout(); router.push("/"); }}
             className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-red-500 hover:bg-red-50 transition-all w-full group">
             <div className="w-7 h-7 rounded-lg bg-red-50 flex items-center justify-center group-hover:bg-red-100">
               <LogOut className="h-3.5 w-3.5 text-red-500" />
