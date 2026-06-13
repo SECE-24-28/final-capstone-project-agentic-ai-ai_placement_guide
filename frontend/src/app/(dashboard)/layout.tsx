@@ -21,10 +21,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const { logout, isAuthenticated } = useAuthStore();
 
   const [mounted, setMounted] = useState(false);
-  useEffect(() => { setMounted(true); }, []);
+  useEffect(() => {
+    useAuthStore.persist.rehydrate();
+    setMounted(true);
+  }, []);
 
-  if (!mounted) return null;
-  if (!isAuthenticated) { router.replace("/"); return null; }
+  if (!mounted) return <div className="min-h-screen bg-gray-50" />;
+  if (!isAuthenticated) { router.replace("/"); return <div className="min-h-screen bg-gray-50" />; }
 
   return (
     <div className="min-h-screen flex bg-gray-50">

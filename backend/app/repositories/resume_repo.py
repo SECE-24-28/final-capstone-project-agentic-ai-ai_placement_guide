@@ -1,3 +1,5 @@
+import hashlib
+import uuid
 from bson import ObjectId
 from app.models.models import resume_doc
 
@@ -7,9 +9,22 @@ class ResumeRepository:
         self.db = db
 
     async def save_analysis(self, student_id: str, file_path: str, file_name: str, analysis: dict) -> dict:
-        # Deactivate previous resumes
+        # Content hash to prevent duplicate versions
+        raw_text = analysis.get("raw_text", "")
+        content_hash = hashlib.md5(raw_text.strip().encode()).hexdigest()
+
+        # Check if same content already exists for this student
+        existing = await self.db.resumes.find_one({"student_id": str(student_id), "content_hash": content_hash})
+        if existing:
+            # Same content — just make it active, don't create new version
+            await self.db.resumes.update_many({"student_id": str(student_id), "is_active": True}, {"$set": {"is_active": False}})
+            await self.db.resumes.update_one({"_id": existing["_id"]}, {"$set": {"is_active": True}})
+            return existing
+
+        # New content — deactivate previous and save new version
         await self.db.resumes.update_many({"student_id": str(student_id), "is_active": True}, {"$set": {"is_active": False}})
         doc = resume_doc(str(student_id), file_path, file_name, analysis)
+        doc["content_hash"] = content_hash
         await self.db.resumes.insert_one(doc)
         return doc
 

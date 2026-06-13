@@ -43,6 +43,7 @@ export const resumeApi = {
   getLatest:   () => api.get("/api/v1/resume/latest"),
   getHistory:  () => api.get("/api/v1/resume/history"),
   compare:     () => api.get("/api/v1/resume/compare"),
+  compareById: (v1: string, v2: string) => api.get(`/api/v1/resume/compare/${v1}/${v2}`),
   getStrength: () => api.get("/api/v1/resume/strength"),
   tailor: (job_description: string) =>
     api.post("/api/v1/resume/tailor", { job_description }),

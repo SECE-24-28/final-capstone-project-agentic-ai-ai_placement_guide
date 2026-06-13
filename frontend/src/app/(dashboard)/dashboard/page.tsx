@@ -1,8 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
-import { FileText, Target, Briefcase, Award, TrendingUp, ArrowRight, Zap, BookOpen, CheckCircle, XCircle, Clock, Info, ChevronDown, ChevronUp } from "lucide-react";
-import { studentApi } from "@/lib/api";
+import { FileText, Target, Briefcase, Award, TrendingUp, ArrowRight, Zap, BookOpen, CheckCircle, XCircle, Clock, Info, ChevronDown, ChevronUp, GitCompare, Minus, Equal } from "lucide-react";
+import { studentApi, resumeApi } from "@/lib/api";
 import { useAnalysisStore } from "@/lib/store";
 import Link from "next/link";
 
@@ -22,11 +22,15 @@ const COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"
 export default function DashboardPage() {
   const [profile, setProfile] = useState<any>(null);
   const [showScoreInfo, setShowScoreInfo] = useState(false);
+  const [compare, setCompare] = useState<any>(null);
   const { resumeAnalysis, skillGap, jobMatches, roadmap } = useAnalysisStore();
 
   useEffect(() => {
     studentApi.getProfile().then((r) => setProfile(r.data)).catch(() => {});
-  }, []);
+    if (resumeAnalysis) {
+      resumeApi.compare().then((r) => setCompare(r.data)).catch(() => {});
+    }
+  }, [resumeAnalysis]);
 
   const resumeScore   = resumeAnalysis?.resume_score ?? 0;
   const gapPct        = skillGap?.skill_gap_percentage ?? 0;
@@ -154,6 +158,82 @@ export default function DashboardPage() {
           </Link>
         ))}
       </div>
+
+      {/* Version Comparison — shown only when 2+ versions exist */}
+      {compare && (
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="p-5 border-b border-gray-100 flex items-center gap-2">
+            <GitCompare className="h-4 w-4 text-blue-600" />
+            <span className="font-bold text-gray-900">Resume Version Comparison</span>
+            <span className="ml-auto text-xs text-gray-400">Latest vs Previous</span>
+          </div>
+          <div className="p-5">
+            {/* ATS Score diff */}
+            <div className="grid grid-cols-3 items-center gap-3 mb-4">
+              <div className="text-center p-3 bg-gray-50 border border-gray-200 rounded-xl">
+                <p className="text-xs text-gray-400 mb-1">Previous</p>
+                <p className="text-3xl font-black text-gray-400">{compare.ats_v1}</p>
+              </div>
+              <div className="flex flex-col items-center gap-1">
+                <div className={`w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl font-bold text-sm ${
+                  compare.ats_improvement > 0 ? "bg-emerald-100 text-emerald-700" :
+                  compare.ats_improvement < 0 ? "bg-red-100 text-red-700" : "bg-gray-100 text-gray-500"
+                }`}>
+                  {compare.ats_improvement > 0 ? "▲" : compare.ats_improvement < 0 ? "▼" : <Equal className="h-3 w-3" />}
+                  {compare.ats_improvement > 0 ? "+" : ""}{compare.ats_improvement} pts
+                </div>
+              </div>
+              <div className="text-center p-3 bg-blue-50 border border-blue-200 rounded-xl">
+                <p className="text-xs text-blue-400 mb-1">Latest</p>
+                <p className="text-3xl font-black text-blue-600">{compare.ats_v2}</p>
+              </div>
+            </div>
+
+            {/* Side-by-side diff */}
+            {(compare.added?.length > 0 || compare.removed?.length > 0) && (
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-xl border border-red-200 overflow-hidden">
+                  <div className="bg-red-50 px-3 py-2 flex items-center gap-2 border-b border-red-200">
+                    <XCircle className="h-3.5 w-3.5 text-red-500" />
+                    <span className="text-xs font-bold text-red-700">Removed ({compare.removed?.length})</span>
+                  </div>
+                  <div className="divide-y divide-red-50 max-h-36 overflow-y-auto">
+                    {compare.removed?.length > 0 ? compare.removed.map((item: any, i: number) => (
+                      <div key={i} className="flex items-start gap-2 px-3 py-2">
+                        <span className="text-red-400 font-bold text-xs mt-0.5">−</span>
+                        <div>
+                          <span className="text-[10px] font-bold text-red-600 uppercase">{item.section}</span>
+                          <p className="text-xs text-gray-600 capitalize">{item.item}</p>
+                        </div>
+                      </div>
+                    )) : <p className="text-xs text-gray-400 text-center py-4">Nothing removed</p>}
+                  </div>
+                </div>
+                <div className="rounded-xl border border-emerald-200 overflow-hidden">
+                  <div className="bg-emerald-50 px-3 py-2 flex items-center gap-2 border-b border-emerald-200">
+                    <CheckCircle className="h-3.5 w-3.5 text-emerald-500" />
+                    <span className="text-xs font-bold text-emerald-700">Added ({compare.added?.length})</span>
+                  </div>
+                  <div className="divide-y divide-emerald-50 max-h-36 overflow-y-auto">
+                    {compare.added?.length > 0 ? compare.added.map((item: any, i: number) => (
+                      <div key={i} className="flex items-start gap-2 px-3 py-2">
+                        <span className="text-emerald-500 font-bold text-xs mt-0.5">+</span>
+                        <div>
+                          <span className="text-[10px] font-bold text-emerald-700 uppercase">{item.section}</span>
+                          <p className="text-xs text-gray-600 capitalize">{item.item}</p>
+                        </div>
+                      </div>
+                    )) : <p className="text-xs text-gray-400 text-center py-4">Nothing added</p>}
+                  </div>
+                </div>
+              </div>
+            )}
+            {compare.added?.length === 0 && compare.removed?.length === 0 && (
+              <p className="text-sm text-center text-gray-400 py-2">✅ Same content as previous version</p>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Readiness Breakdown + Skill Gap side by side */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

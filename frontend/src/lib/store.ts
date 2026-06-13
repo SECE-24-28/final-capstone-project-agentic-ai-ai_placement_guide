@@ -26,7 +26,7 @@ export const useAuthStore = create<AuthState>()(
         set({ token: null, userId: null, role: null, isAuthenticated: false });
       },
     }),
-    { name: "auth-store" }
+    { name: "auth-store", skipHydration: true }
   )
 );
 

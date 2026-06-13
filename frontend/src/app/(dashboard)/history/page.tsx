@@ -17,10 +17,19 @@ export default function HistoryPage() {
       .finally(() => setLoading(false));
   }, []);
 
+  const [selected, setSelected] = useState<string[]>([]);
+
+  const toggleSelect = (id: string) => {
+    setSelected((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : prev.length < 2 ? [...prev, id] : [prev[1], id]
+    );
+  };
+
   const runCompare = async () => {
+    if (selected.length < 2) return;
     setCmpLoading(true);
     try {
-      const r = await resumeApi.compare();
+      const r = await resumeApi.compareById(selected[0], selected[1]);
       setCompare(r.data);
     } catch (e: any) {
       setError(e.response?.data?.detail || "Compare failed");
@@ -51,10 +60,10 @@ export default function HistoryPage() {
           <p className="text-gray-500 mt-1">All your uploaded resume versions</p>
         </div>
         {history?.total >= 2 && (
-          <button onClick={runCompare} disabled={cmpLoading}
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-semibold text-sm shadow-lg shadow-blue-200 transition-all disabled:opacity-60">
+          <button onClick={runCompare} disabled={cmpLoading || selected.length < 2}
+            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-semibold text-sm shadow-lg shadow-blue-200 transition-all disabled:opacity-50">
             <GitCompare className="h-4 w-4" />
-            {cmpLoading ? "Comparing..." : "Compare Last 2 Versions"}
+            {cmpLoading ? "Comparing..." : selected.length < 2 ? `Select ${2 - selected.length} more` : "Compare Selected"}
           </button>
         )}
       </div>
@@ -66,13 +75,23 @@ export default function HistoryPage() {
           <span className="font-semibold text-gray-900">Upload History</span>
           <span className="ml-auto text-sm text-gray-400">{history?.total} version{history?.total !== 1 ? "s" : ""}</span>
         </div>
+        {history?.total >= 2 && (
+          <div className="px-5 py-2.5 bg-blue-50 border-b border-blue-100 text-xs text-blue-600 font-medium">
+            👆 Select any 2 versions to compare
+          </div>
+        )}
         <div className="divide-y divide-gray-50">
           {history?.history?.map((r: any, i: number) => (
-            <div key={r.resume_id} className="flex items-center gap-4 p-4 hover:bg-gray-50 transition-colors">
+            <div key={r.resume_id}
+              onClick={() => toggleSelect(r.resume_id)}
+              className={`flex items-center gap-4 p-4 cursor-pointer transition-colors ${
+                selected.includes(r.resume_id) ? "bg-blue-50 border-l-4 border-blue-500" : "hover:bg-gray-50"
+              }`}>
               <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 font-bold text-sm ${
+                selected.includes(r.resume_id) ? "bg-blue-600 text-white" :
                 r.is_active ? "bg-blue-600 text-white shadow-md shadow-blue-200" : "bg-gray-100 text-gray-500"
               }`}>
-                {r.is_active ? "✓" : `v${history.total - i}`}
+                {selected.includes(r.resume_id) ? "✓" : r.is_active ? "✓" : `v${history.total - i}`}
               </div>
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-gray-900 truncate">{r.file_name}</p>

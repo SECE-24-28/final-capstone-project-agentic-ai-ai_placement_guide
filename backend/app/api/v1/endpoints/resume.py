@@ -1,4 +1,5 @@
 import uuid
+from bson import ObjectId
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
@@ -100,21 +101,38 @@ async def get_latest_resume(db=Depends(get_db), current_user=Depends(get_current
     )
 
 
-# ── Feature 1: Resume Version Compare ────────────────────────────────────────
+# ── Feature 1: Resume Version Compare (last 2) ───────────────────────────────
 @router.get("/compare")
 async def compare_resumes(db=Depends(get_db), current_user=Depends(get_current_user)):
-    """Compare student's last 2 resume versions — section diff + ATS before/after."""
     student = await StudentRepository(db).get_by_user_id(str(current_user["_id"]))
     if not student:
         raise HTTPException(status_code=404, detail="Student not found")
-
     resumes = await ResumeRepository(db).get_all_resumes(str(student["_id"]))
-
     if len(resumes) < 2:
         raise HTTPException(status_code=404, detail="Need at least 2 resume uploads to compare")
-
-    # resumes[1] = older (v1), resumes[0] = newer (v2)
     result = compare_resume_versions(resumes[1], resumes[0])
+    if "error" in result:
+        raise HTTPException(status_code=500, detail=result["error"])
+    return result
+
+
+# ── Feature 1b: Compare any 2 versions by ID ─────────────────────────────────
+@router.get("/compare/{v1_id}/{v2_id}")
+async def compare_by_id(v1_id: str, v2_id: str, db=Depends(get_db), current_user=Depends(get_current_user)):
+    student = await StudentRepository(db).get_by_user_id(str(current_user["_id"]))
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+    try:
+        r1 = await db.resumes.find_one({"_id": ObjectId(v1_id), "student_id": str(student["_id"])})
+        r2 = await db.resumes.find_one({"_id": ObjectId(v2_id), "student_id": str(student["_id"])})
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid resume ID")
+    if not r1 or not r2:
+        raise HTTPException(status_code=404, detail="Resume not found")
+    # r1 = older (v1), r2 = newer (v2) — sort by created_at
+    if r1.get("created_at", 0) > r2.get("created_at", 0):
+        r1, r2 = r2, r1
+    result = compare_resume_versions(r1, r2)
     if "error" in result:
         raise HTTPException(status_code=500, detail=result["error"])
     return result
@@ -132,8 +150,18 @@ async def get_resume_history(db=Depends(get_db), current_user=Depends(get_curren
     if not resumes:
         raise HTTPException(status_code=404, detail="No resume history found")
 
+    import hashlib
+    # Deduplicate by content hash — keep only latest per unique content
+    seen_hashes = set()
+    unique_resumes = []
+    for r in resumes:
+        h = r.get("content_hash") or hashlib.md5((r.get("raw_text") or "").strip().encode()).hexdigest()
+        if h not in seen_hashes:
+            seen_hashes.add(h)
+            unique_resumes.append(r)
+
     return {
-        "total": len(resumes),
+        "total": len(unique_resumes),
         "history": [
             {
                 "resume_id":    str(r["_id"]),
@@ -143,7 +171,7 @@ async def get_resume_history(db=Depends(get_db), current_user=Depends(get_curren
                 "uploaded_at":  r.get("created_at").isoformat() if r.get("created_at") else None,
                 "skills_count": len(r.get("skills", [])),
             }
-            for r in resumes
+            for r in unique_resumes
         ],
     }
 
