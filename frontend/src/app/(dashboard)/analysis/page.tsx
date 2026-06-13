@@ -25,12 +25,6 @@ const scoreColor = (s: number) => s >= 80 ? "#10b981" : s >= 60 ? "#f59e0b" : "#
 const scoreLabel = (s: number) => s >= 80 ? "Excellent" : s >= 60 ? "Good" : "Needs Work";
 const scoreBg    = (s: number) => s >= 80 ? "from-emerald-500 to-green-600" : s >= 60 ? "from-amber-500 to-orange-500" : "from-red-500 to-rose-600";
 
-const severityConfig: any = {
-  error:   { bg: "bg-red-50",   text: "text-red-700",   border: "border-red-200",   badge: "bg-red-100 text-red-700" },
-  warning: { bg: "bg-amber-50", text: "text-amber-700", border: "border-amber-200", badge: "bg-amber-100 text-amber-700" },
-  info:    { bg: "bg-blue-50",  text: "text-blue-700",  border: "border-blue-200",  badge: "bg-blue-100 text-blue-700" },
-};
-
 const strengthColor = (s: number) => s >= 20 ? "#10b981" : s >= 10 ? "#f59e0b" : "#ef4444";
 const strengthLabel: any = {
   skills:         "Skills",
@@ -450,30 +444,7 @@ export default function AnalysisPage() {
         </div>
       )}
 
-      {resumeAnalysis.feedback?.length > 0 && (
-        <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
-          <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
-            <div className="w-7 h-7 bg-amber-100 rounded-lg flex items-center justify-center">
-              <AlertCircle className="h-3.5 w-3.5 text-amber-600" />
-            </div>
-            ATS Signals
-          </h3>
-          <div className="space-y-2">
-            {resumeAnalysis.feedback.map((f: any, i: number) => {
-              const c = severityConfig[f.severity] || severityConfig.info;
-              return (
-                <div key={i} className={`flex items-start gap-3 p-4 rounded-xl border ${c.bg} ${c.border}`}>
-                  <span className={`flex-shrink-0 px-2 py-0.5 rounded-full text-xs font-bold ${c.badge}`}>{f.severity}</span>
-                  <div>
-                    <span className={`text-xs font-semibold uppercase tracking-wider ${c.text}`}>{f.category} · </span>
-                    <span className={`text-sm ${c.text}`}>{f.message}</span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
+      {/* ATS Signals — hidden */}
 
       {/* ── ATS Score Improvement Tips (ResumeWorded style) ─────────────────── */}
       {resumeAnalysis && (() => {

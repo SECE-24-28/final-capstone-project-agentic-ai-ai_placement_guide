@@ -270,7 +270,8 @@ def keyword_match_score(resume_text: str, jd_text: str = "") -> tuple:
 
     matched = jd_keywords & resume_keywords
     score   = round(min((len(matched) / len(jd_keywords)) * 100, 100.0), 1)
-    missing = sorted(jd_keywords - resume_keywords)[:15]
+    # Filter missing to single clean words only (no long phrases)
+    missing = sorted(w for w in (jd_keywords - resume_keywords) if len(w.split()) == 1 and len(w) > 2)[:12]
 
     return score, {
         "matched_keywords":  sorted(matched)[:20],

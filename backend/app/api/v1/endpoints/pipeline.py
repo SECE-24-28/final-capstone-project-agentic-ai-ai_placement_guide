@@ -63,7 +63,7 @@ async def full_analysis(
         # Agent 4
         job_repo = JobRepository(db)
         query_emb = _embedder.encode(target_role).tolist()
-        jobs_list = await job_repo.semantic_search(query_emb, top_k=30)
+        jobs_list = await job_repo.semantic_search(query_emb, top_k=15)
         if len(jobs_list) < 5:
             jobs_list = await job_repo.get_all_active()
 

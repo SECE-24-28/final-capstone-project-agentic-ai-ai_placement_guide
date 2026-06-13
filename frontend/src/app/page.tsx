@@ -1,5 +1,4 @@
 "use client";
-import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -21,10 +20,7 @@ export default function Home() {
   const { setAuth, isAuthenticated } = useAuthStore();
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormData>({ resolver: zodResolver(schema) });
 
-  // If already logged in, go straight to dashboard
-  useEffect(() => {
-    if (isAuthenticated) router.replace("/dashboard");
-  }, [isAuthenticated, router]);
+
 
   const onSubmit = async (data: FormData) => {
     try {

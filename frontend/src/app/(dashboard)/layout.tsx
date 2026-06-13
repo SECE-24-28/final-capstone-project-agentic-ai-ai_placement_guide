@@ -1,4 +1,5 @@
 "use client";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Brain, LayoutDashboard, Upload, Target, Map, Briefcase, User, LogOut, ChevronRight, History } from "lucide-react";
@@ -17,7 +18,13 @@ const navItems = [
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { logout } = useAuthStore();
+  const { logout, isAuthenticated } = useAuthStore();
+
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+
+  if (!mounted) return null;
+  if (!isAuthenticated) { router.replace("/"); return null; }
 
   return (
     <div className="min-h-screen flex bg-gray-50">
