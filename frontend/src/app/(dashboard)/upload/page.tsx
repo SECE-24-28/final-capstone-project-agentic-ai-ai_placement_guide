@@ -3,7 +3,7 @@ import { useCallback, useState } from "react";
 import { useDropzone } from "react-dropzone";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Upload, FileText, CheckCircle, Loader2, X, Sparkles, Brain, Target, Map, Briefcase, AlertCircle, XCircle, Zap, ArrowRight } from "lucide-react";
+import { Upload, FileText, CheckCircle, Loader2, X, Sparkles, Brain, Target, Map, Briefcase } from "lucide-react";
 import { pipelineApi } from "@/lib/api";
 import { useAnalysisStore } from "@/lib/store";
 
@@ -33,7 +33,6 @@ export default function UploadPage() {
   const [hours, setHours] = useState(2);
   const [statuses, setStatuses] = useState<("pending" | "running" | "done")[]>(["pending", "pending", "pending", "pending"]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [result, setResult] = useState<any>(null);
 
   const onDrop = useCallback((files: File[]) => { if (files[0]) setFile(files[0]); }, []);
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -59,9 +58,8 @@ export default function UploadPage() {
       const res = await pipelineApi.fullAnalysis(file, targetRole, level, hours);
       upd(3, "done");
       setFullAnalysis(res.data);
-      setResult(res.data);
       toast.success("Analysis complete! Redirecting to dashboard...");
-      await new Promise(r => setTimeout(r, 1200)); // brief pause so user sees all agents done
+      await new Promise(r => setTimeout(r, 800));
       router.push("/dashboard");
     } catch (err: any) {
       const detail = err.response?.data?.detail || "Analysis failed.";
@@ -198,93 +196,7 @@ export default function UploadPage() {
         )}
       </button>
 
-      {/* ── Inline Smart Feedback after analysis ── */}
-      {result?.resume_analysis?.smart_feedback && (() => {
-        const sf = result.resume_analysis.smart_feedback;
-        const score = result.resume_analysis.resume_score;
-        return (
-          <div className="space-y-4">
-            {/* Score + verdict */}
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex items-center gap-5">
-              <div className="flex-shrink-0 text-center">
-                <p className="text-5xl font-black" style={{ color: score >= 70 ? "#10b981" : score >= 50 ? "#f59e0b" : "#ef4444" }}>{score}</p>
-                <p className="text-xs text-gray-400 mt-0.5">ATS Score</p>
-              </div>
-              <div>
-                <p className="font-bold text-gray-900 text-lg">{result.resume_analysis.candidate_name}</p>
-                {sf.overall_verdict && <p className="text-sm text-gray-500 mt-1">{sf.overall_verdict}</p>}
-              </div>
-            </div>
 
-            {/* Strengths */}
-            {sf.strengths?.length > 0 && (
-              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                <p className="font-bold text-emerald-700 mb-3 flex items-center gap-2"><CheckCircle className="h-4 w-4" /> What's Working Well</p>
-                <div className="space-y-2">
-                  {sf.strengths.map((s: any, i: number) => (
-                    <div key={i} className="flex items-start gap-3 p-3 bg-emerald-50 border border-emerald-100 rounded-xl">
-                      <CheckCircle className="h-4 w-4 text-emerald-500 mt-0.5 flex-shrink-0" />
-                      <div>
-                        <span className="text-xs font-bold text-emerald-700 uppercase">{s.section}</span>
-                        {s.item && <span className="text-xs text-emerald-600"> · {s.item}</span>}
-                        <p className="text-sm text-gray-700 mt-0.5">{s.reason}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Improvements */}
-            {sf.improvements?.length > 0 && (
-              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                <p className="font-bold text-red-600 mb-3 flex items-center gap-2"><XCircle className="h-4 w-4" /> What Needs Fixing</p>
-                <div className="space-y-3">
-                  {sf.improvements.map((imp: any, i: number) => (
-                    <div key={i} className={`p-4 rounded-xl border ${
-                      imp.priority === "high" ? "bg-red-50 border-red-200" :
-                      imp.priority === "medium" ? "bg-amber-50 border-amber-200" : "bg-gray-50 border-gray-200"
-                    }`}>
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-                          imp.priority === "high" ? "bg-red-100 text-red-700" :
-                          imp.priority === "medium" ? "bg-amber-100 text-amber-700" : "bg-gray-200 text-gray-600"
-                        }`}>{imp.priority}</span>
-                        <span className="text-xs font-semibold text-gray-500 uppercase">{imp.section}</span>
-                        {imp.item && <span className="text-xs text-gray-400">· {imp.item}</span>}
-                      </div>
-                      <p className="text-sm font-medium text-gray-800">{imp.issue}</p>
-                      {imp.fix && <p className="text-xs text-gray-600 mt-1.5 bg-white/70 rounded-lg px-3 py-2 border border-gray-100">💡 {imp.fix}</p>}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Missing */}
-            {sf.missing?.length > 0 && (
-              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                <p className="font-bold text-amber-700 mb-3 flex items-center gap-2"><AlertCircle className="h-4 w-4" /> What's Missing</p>
-                <div className="space-y-2">
-                  {sf.missing.map((m: any, i: number) => (
-                    <div key={i} className="p-3 bg-amber-50 border border-amber-100 rounded-xl">
-                      <p className="text-sm font-semibold text-gray-800">{m.what}</p>
-                      <p className="text-xs text-gray-500 mt-0.5">{m.why}</p>
-                      {m.example && <p className="text-xs text-amber-700 mt-1 font-medium">Example: {m.example}</p>}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Go to full dashboard */}
-            <button onClick={() => router.push("/dashboard")}
-              className="w-full flex items-center justify-center gap-2 bg-gray-900 hover:bg-gray-800 text-white font-bold py-4 rounded-2xl transition-all">
-              View Full Dashboard <ArrowRight className="h-4 w-4" />
-            </button>
-          </div>
-        );
-      })()}
     </div>
   );
 }
