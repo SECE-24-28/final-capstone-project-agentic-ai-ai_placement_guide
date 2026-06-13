@@ -60,7 +60,9 @@ export default function UploadPage() {
       upd(3, "done");
       setFullAnalysis(res.data);
       setResult(res.data);
-      toast.success("Analysis complete!");
+      toast.success("Analysis complete! Redirecting to dashboard...");
+      await new Promise(r => setTimeout(r, 1200)); // brief pause so user sees all agents done
+      router.push("/dashboard");
     } catch (err: any) {
       const detail = err.response?.data?.detail || "Analysis failed.";
       const status = err.response?.status;
